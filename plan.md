@@ -673,18 +673,20 @@ The only scheduled job for MVP is the day-before reminder (§15). `node-cron` ru
 
 ### Hosting & exposure
 
-Self-hosted on the homelab, made reachable to attendees via **Tailscale Funnel** (public internet, no Tailscale client required on their end) while the admin dashboard stays reachable only over the **Tailnet**:
+Self-hosted on the homelab, made reachable via **Tailscale Funnel** (public internet, no Tailscale client required on anyone's end). Funnel exposes the whole app, `/admin` included — the admin dashboard is intentionally public and gated by a password, not by Tailnet placement:
 
 ```text
 Attendees ──(public internet)──▶ Tailscale Funnel ──▶ Next.js public routes ( / )
-You       ──(Tailnet only)─────────────────────────▶ Next.js admin routes ( /admin )
+You       ──(public internet)──▶ Tailscale Funnel ──▶ Next.js admin routes ( /admin )
+                                                       └─ gated by ADMIN_PASSWORD
+                                                          + signed session cookie
 
 docker-compose services on the homelab box:
   - app   (Next.js, standalone build)   — DATABASE_URL points at the existing Postgres
   - waha  (WAHA, persistent session volume) — internal-only, not exposed to Tailnet or Funnel
 ```
 
-Because Funnel exposes a whole port and `/admin` must stay private, the exact gating mechanism (checking the request arrived via the Tailscale interface vs. the Funnel-forwarded one, e.g. via Tailscale's identity headers/IP range in middleware, vs. running admin on a second listener bound only to the Tailscale IP) is an implementation detail to pin down during planning — not a product decision.
+Because Funnel exposes a whole port, `/admin` cannot rely on network placement for privacy, so it carries its own auth: **decided and implemented** — a single `ADMIN_PASSWORD` checked in a Server Action, which sets an HMAC-signed session cookie that middleware verifies on every `/admin/*` request except `/admin/login`. `ADMIN_PASSWORD` is therefore the entire admin security boundary. See `docs/deploy/tailscale.md` for the deployed model and `docs/superpowers/specs/2026-08-17-admin-password-auth-design.md` for the design rationale.
 
 ### Testing
 
@@ -696,7 +698,7 @@ Light coverage for MVP: integration tests (against a test database) for the tric
 
 ### Must Have
 
-* [ ] Admin dashboard restricted to Tailnet-only access (no in-app login needed)
+* [ ] Admin dashboard gated by an in-app password login (`ADMIN_PASSWORD` + signed session cookie); `/admin` itself is publicly reachable via Funnel
 * [ ] Create event
 * [ ] Set date/time
 * [ ] Select invitees
