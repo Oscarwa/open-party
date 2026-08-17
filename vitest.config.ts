@@ -33,6 +33,8 @@ export default defineConfig({
       WAHA_SESSION: process.env.WAHA_SESSION ?? 'default',
       SESSION_SECRET:
         process.env.SESSION_SECRET ?? 'test-session-secret-at-least-32-chars',
+      ADMIN_PASSWORD:
+        process.env.ADMIN_PASSWORD ?? 'test-admin-password-12-plus-chars',
     },
   },
   resolve: {

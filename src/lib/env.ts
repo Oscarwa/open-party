@@ -5,6 +5,7 @@ const envSchema = z.object({
   WAHA_URL: z.string().url(),
   WAHA_SESSION: z.string().min(1),
   SESSION_SECRET: z.string().min(32),
+  ADMIN_PASSWORD: z.string().min(12),
 })
 
 export type Env = z.infer<typeof envSchema>

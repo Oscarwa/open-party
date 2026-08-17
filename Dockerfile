@@ -21,6 +21,7 @@ ENV DATABASE_URL="postgres://build:build@localhost:5432/build"
 ENV WAHA_URL="http://build:3000"
 ENV WAHA_SESSION="build"
 ENV SESSION_SECRET="build-time-placeholder-not-a-real-secret-32c"
+ENV ADMIN_PASSWORD="build-time-placeholder-password-12c"
 RUN npm run build
 
 FROM base AS runner

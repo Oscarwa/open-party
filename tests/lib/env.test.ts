@@ -7,6 +7,7 @@ describe('loadEnv', () => {
     WAHA_URL: 'http://waha:3000',
     WAHA_SESSION: 'default',
     SESSION_SECRET: 'a'.repeat(32),
+    ADMIN_PASSWORD: 'a-twelve-plus-character-password',
   }
 
   it('returns parsed env when all required vars are present and valid', () => {
@@ -29,5 +30,11 @@ describe('loadEnv', () => {
     expect(() =>
       loadEnv({ ...validEnv, SESSION_SECRET: 'short' })
     ).toThrow(/SESSION_SECRET/)
+  })
+
+  it('throws when ADMIN_PASSWORD is shorter than 12 characters', () => {
+    expect(() =>
+      loadEnv({ ...validEnv, ADMIN_PASSWORD: 'short' })
+    ).toThrow(/ADMIN_PASSWORD/)
   })
 })
