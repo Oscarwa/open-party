@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { db } from '@/db/client'
 import { events } from '@/db/schema'
+import { activityOptions, bringItems, foodOptions } from '@/db/schema'
 
 export class EventActionError extends Error {}
 
@@ -32,4 +33,77 @@ export async function createEvent(input: {
     })
     .returning()
   return event
+}
+
+export async function addFoodOption(eventId: string, name: string) {
+  const event = await getEventOrThrow(eventId)
+  assertDraft(event)
+  const [option] = await db.insert(foodOptions).values({ eventId, name }).returning()
+  return option
+}
+
+export async function toggleFoodOptionDisabled(foodOptionId: string) {
+  const [option] = await db
+    .select()
+    .from(foodOptions)
+    .where(eq(foodOptions.id, foodOptionId))
+  if (!option) throw new EventActionError('Food option not found')
+  const [updated] = await db
+    .update(foodOptions)
+    .set({ disabled: !option.disabled })
+    .where(eq(foodOptions.id, foodOptionId))
+    .returning()
+  return updated
+}
+
+export async function deleteFoodOption(foodOptionId: string) {
+  const [option] = await db
+    .select()
+    .from(foodOptions)
+    .where(eq(foodOptions.id, foodOptionId))
+  if (!option) throw new EventActionError('Food option not found')
+  const event = await getEventOrThrow(option.eventId)
+  assertDraft(event)
+  await db.delete(foodOptions).where(eq(foodOptions.id, foodOptionId))
+}
+
+export async function addActivityOption(eventId: string, name: string) {
+  const event = await getEventOrThrow(eventId)
+  assertDraft(event)
+  const [option] = await db
+    .insert(activityOptions)
+    .values({ eventId, name })
+    .returning()
+  return option
+}
+
+export async function deleteActivityOption(activityOptionId: string) {
+  const [option] = await db
+    .select()
+    .from(activityOptions)
+    .where(eq(activityOptions.id, activityOptionId))
+  if (!option) throw new EventActionError('Activity option not found')
+  const event = await getEventOrThrow(option.eventId)
+  assertDraft(event)
+  await db
+    .delete(activityOptions)
+    .where(eq(activityOptions.id, activityOptionId))
+}
+
+export async function addBringItem(eventId: string, name: string) {
+  const event = await getEventOrThrow(eventId)
+  assertDraft(event)
+  const [item] = await db.insert(bringItems).values({ eventId, name }).returning()
+  return item
+}
+
+export async function deleteBringItem(bringItemId: string) {
+  const [item] = await db
+    .select()
+    .from(bringItems)
+    .where(eq(bringItems.id, bringItemId))
+  if (!item) throw new EventActionError('Bring item not found')
+  const event = await getEventOrThrow(item.eventId)
+  assertDraft(event)
+  await db.delete(bringItems).where(eq(bringItems.id, bringItemId))
 }
