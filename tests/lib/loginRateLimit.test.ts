@@ -38,6 +38,38 @@ describe('login rate limiter', () => {
     expect(isRateLimited('1.2.3.4', now + 16 * 60 * 1000)).toBe(false)
   })
 
+  it('is not limited at the default threshold when a higher one is passed', () => {
+    const now = Date.now()
+    for (let i = 0; i < 5; i++) recordFailedAttempt('__global__', now)
+    // Same bucket, read two ways: exhausted at the default 5, nowhere near
+    // a backstop threshold of 50.
+    expect(isRateLimited('__global__', now)).toBe(true)
+    expect(isRateLimited('__global__', now, 50)).toBe(false)
+  })
+
+  it('is limited once the higher explicit threshold is reached', () => {
+    const now = Date.now()
+    for (let i = 0; i < 49; i++) recordFailedAttempt('__global__', now)
+    expect(isRateLimited('__global__', now, 50)).toBe(false)
+    recordFailedAttempt('__global__', now)
+    expect(isRateLimited('__global__', now, 50)).toBe(true)
+  })
+
+  it('does not lock out a second key when one key trips the default limit', () => {
+    // The lockout scenario the global backstop's own threshold closes: an
+    // attacker burns 5 attempts, which also lands 5 on the shared global
+    // key. The admin, on a different IP, must still get through — the
+    // global key is only limited at its much higher backstop threshold.
+    const now = Date.now()
+    for (let i = 0; i < 5; i++) {
+      recordFailedAttempt('9.9.9.9', now)
+      recordFailedAttempt('__global__', now)
+    }
+    expect(isRateLimited('9.9.9.9', now)).toBe(true)
+    expect(isRateLimited('1.2.3.4', now)).toBe(false)
+    expect(isRateLimited('__global__', now, 50)).toBe(false)
+  })
+
   it('sweeps expired buckets instead of growing without bound', () => {
     const now = Date.now()
     for (let i = 0; i < _MAX_TRACKED_KEYS_FOR_TESTS; i++) {

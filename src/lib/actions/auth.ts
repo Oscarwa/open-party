@@ -32,7 +32,8 @@ function passwordsMatch(input: string, expected: string): boolean {
 // here), i.e. by infrastructure we control, so it's the only entry worth
 // trusting.
 //
-// Two known weaknesses, both bounded by the global backstop in loginAction:
+// Two known weaknesses. Neither is a bypass, and both are bounded — loosely,
+// at the global backstop's higher threshold — by loginAction's global key:
 //   - If the header is absent (or empty after parsing), every caller shares
 //     the 'global' bucket — worse than per-IP, but not a bypass.
 //   - If a second trusted hop is ever added in front of Funnel, the
@@ -55,12 +56,27 @@ async function getClientKey(): Promise<string> {
 // suffixed so it can't collide with a real IP-shaped key.
 const GLOBAL_RATE_LIMIT_KEY = '__global__'
 
+// The global key gets its OWN, much higher threshold than the per-client
+// default of 5. Both keys are incremented by every failure, so a shared
+// threshold would make the global bucket the binding constraint: 5 wrong
+// passwords from any anonymous visitor would lock the real admin out of a
+// deliberately-public login page, repeatably and for free. Per-client
+// limiting is the primary control; this is only a ceiling on a distributed
+// or header-spoofing attacker, sized well above anything normal use — or a
+// single mildly-annoying visitor — could reach in a 15-minute window.
+const GLOBAL_MAX_ATTEMPTS = 50
+
 export async function loginAction(formData: FormData) {
   const env = loadEnv()
   const key = await getClientKey()
 
-  // Limited if EITHER bucket is exhausted; a failure increments BOTH.
-  if (isRateLimited(key) || isRateLimited(GLOBAL_RATE_LIMIT_KEY)) {
+  // Limited if EITHER bucket is exhausted; a failure increments BOTH. The
+  // per-client key uses the default threshold (5); the global key is read
+  // against its own, far higher one.
+  if (
+    isRateLimited(key) ||
+    isRateLimited(GLOBAL_RATE_LIMIT_KEY, undefined, GLOBAL_MAX_ATTEMPTS)
+  ) {
     redirect('/admin/login?error=rate_limited')
   }
 

@@ -17,14 +17,23 @@ type Bucket = { count: number; resetAt: number }
 
 const attempts = new Map<string, Bucket>()
 
-export function isRateLimited(key: string, now: number = Date.now()): boolean {
+// `maxAttempts` is a read-time parameter, not a property of the bucket:
+// recordFailedAttempt only ever increments a counter, so the same key can be
+// read against different thresholds. That's what lets loginAction hold the
+// per-client key to 5 while giving the global backstop key a far higher
+// ceiling, even though a failure increments both.
+export function isRateLimited(
+  key: string,
+  now: number = Date.now(),
+  maxAttempts: number = MAX_ATTEMPTS,
+): boolean {
   const bucket = attempts.get(key)
   if (!bucket) return false
   if (now >= bucket.resetAt) {
     attempts.delete(key)
     return false
   }
-  return bucket.count >= MAX_ATTEMPTS
+  return bucket.count >= maxAttempts
 }
 
 // Deletes every bucket whose window has already elapsed. Called only when

@@ -31,16 +31,20 @@ increments both; an attempt is blocked if either is exhausted:
   entry of `X-Forwarded-For` — the hop written by Funnel itself. The
   leftmost entry is whatever the client claimed and is not trusted, so
   spoofing that header doesn't earn a fresh bucket.
-- **Global ceiling:** 5 failures per 15 minutes across all callers, as a
+- **Global ceiling:** 50 failures per 15 minutes across all callers, as a
   backstop for the cases where per-IP keying degrades into one shared
   bucket (no `X-Forwarded-For` at all, or an extra trusted proxy hop in
   front of Funnel making the rightmost entry that proxy's address).
 
-Per-IP limiting is therefore best-effort; the global ceiling is the
-guarantee. Note the flip side: 5 failed attempts from anywhere lock out
-*everyone* — including you — for 15 minutes. Acceptable for a single-admin
-homelab app. Both counters reset on every redeploy and don't survive
-multiple app instances.
+Per-IP limiting at 5 attempts per 15 minutes is the primary control. The
+global ceiling is deliberately set an order of magnitude higher: it exists
+only to bound a distributed or header-spoofing attacker, not to govern
+normal use. Because `/admin/login` is public, a shared threshold would mean
+any passer-by could lock the admin out with 5 wrong guesses; at 50, one
+visitor fumbling their password can't take the panel down, while a
+sustained attack still hits a ceiling. If the global bucket ever does trip,
+it locks out *everyone* — including you — for 15 minutes. Both counters
+reset on every redeploy and don't survive multiple app instances.
 
 1. Serve the full app to your Tailnet. Since `/admin` no longer depends on
    Tailnet placement for security, this is now purely a convenience
@@ -65,9 +69,11 @@ multiple app instances.
      should redirect to `/admin/login` and show the login form.
    - Submit the wrong password: you should see "Incorrect password" and
      stay on the login page.
-   - Submit it wrong 5 times in a row: the 6th attempt (even with the
-     correct password) should show a rate-limit message. Wait 15 minutes,
-     or redeploy (which clears the in-memory counter), to try again.
+   - Submit it wrong 5 times in a row from one device: the 6th attempt
+     (even with the correct password) should show a rate-limit message —
+     that's the per-IP limit. A different IP is unaffected. Wait 15
+     minutes, or redeploy (which clears the in-memory counter), to try
+     again.
    - Submit the correct `ADMIN_PASSWORD`: you should land on `/admin` and
      stay logged in across page loads (check that an `admin_session`
      cookie is set) for up to 30 days.
