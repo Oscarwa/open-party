@@ -1,11 +1,16 @@
 import { cookies } from 'next/headers'
 import { notFound } from 'next/navigation'
+import { Box, Heading, Input, Stack, Text } from '@chakra-ui/react'
 import { loadEnv } from '@/lib/env'
 import { ATTENDEE_SESSION_COOKIE_NAME, verifyAttendeeSessionToken } from '@/lib/attendeeSession'
 import { getInviteeForUserAndEvent } from '@/lib/rsvp'
 import { getEvent, getFoodOptions, getActivityOptions, getBringItems } from '@/lib/queries/events'
 import { getClaimedBringItemIds } from '@/lib/queries/rsvp'
 import { declineAction, submitRsvpAction } from '@/lib/actions/rsvp'
+import { PageShell } from '@/components/PageShell'
+import { FieldGroup } from '@/components/FieldGroup'
+import { FormSelect } from '@/components/FormSelect'
+import { Button } from '@/components/Button'
 
 export default async function EventRsvpPage({
   params,
@@ -37,106 +42,131 @@ export default async function EventRsvpPage({
 
   if (event.status !== 'published') {
     return (
-      <main>
-        <h1>{event.title}</h1>
-        <p>
+      <PageShell title={event.title}>
+        <Text color="fg.muted">
           {event.date} {event.startTime}
-        </p>
-        <p>
-          Final food: {foodOptions.find((o) => o.id === event.finalFoodOptionId)?.name ?? '—'}
-        </p>
-        <p>
-          Final activity:{' '}
-          {activityOptions.find((o) => o.id === event.finalActivityOptionId)?.name ?? '—'}
-        </p>
-        <p>
-          You&apos;re bringing:{' '}
-          {bringItems.find((i) => i.id === invitee.bringItemId)?.name ?? 'nothing selected'}
-        </p>
-      </main>
+        </Text>
+        <Stack gap={2}>
+          <Text>
+            Final food: {foodOptions.find((o) => o.id === event.finalFoodOptionId)?.name ?? '—'}
+          </Text>
+          <Text>
+            Final activity:{' '}
+            {activityOptions.find((o) => o.id === event.finalActivityOptionId)?.name ?? '—'}
+          </Text>
+          <Text>
+            You&apos;re bringing:{' '}
+            {bringItems.find((i) => i.id === invitee.bringItemId)?.name ?? 'nothing selected'}
+          </Text>
+        </Stack>
+      </PageShell>
     )
   }
 
   const claimedBringItemIds = await getClaimedBringItemIds(eventId, invitee.id)
 
-  return (
-    <main>
-      <h1>{event.title}</h1>
-      <p>
-        {event.date} {event.startTime}
-      </p>
-      {event.description ? <p>{event.description}</p> : null}
-      <p>Your current RSVP: {invitee.rsvpStatus}</p>
+  const foodSelectOptions = foodOptions
+    .filter((option) => !option.disabled)
+    .map((option) => ({ value: option.id, label: option.name }))
 
-      <section>
-        <h2>Yes, I&apos;ll be there</h2>
+  const activitySelectOptions = activityOptions.map((option) => ({
+    value: option.id,
+    label: option.name,
+  }))
+
+  const bringItemSelectOptions = bringItems.map((item) => {
+    const claimedByOther = claimedBringItemIds.has(item.id) && item.id !== invitee.bringItemId
+    return {
+      value: item.id,
+      label: claimedByOther ? `${item.name} (already claimed)` : item.name,
+      disabled: claimedByOther,
+    }
+  })
+
+  return (
+    <PageShell title={event.title}>
+      <Text color="fg.muted">
+        {event.date} {event.startTime}
+      </Text>
+      {event.description ? <Text>{event.description}</Text> : null}
+      <Text fontWeight="medium">Your current RSVP: {invitee.rsvpStatus}</Text>
+
+      <Box as="section" borderWidth="1px" borderRadius="lg" p={{ base: 4, md: 6 }}>
+        <Heading as="h2" size="lg" mb={4}>
+          Yes, I&apos;ll be there
+        </Heading>
         <form action={submitRsvpAction}>
           <input type="hidden" name="eventId" value={eventId} />
+          <Stack gap={5}>
+            <Heading as="h3" size="md">
+              Food (pick up to 3, ranked)
+            </Heading>
+            {(['foodChoice1', 'foodChoice2', 'foodChoice3'] as const).map((field, index) => (
+              <FieldGroup key={field} label={`${index + 1}. choice`} htmlFor={field}>
+                <FormSelect
+                  id={field}
+                  name={field}
+                  placeholder="No preference"
+                  defaultValue={invitee[field] ?? undefined}
+                  options={foodSelectOptions}
+                />
+              </FieldGroup>
+            ))}
 
-          <h3>Food (pick up to 3, ranked)</h3>
-          {(['foodChoice1', 'foodChoice2', 'foodChoice3'] as const).map((field, index) => (
-            <div key={field}>
-              <label htmlFor={field}>{index + 1}. choice</label>
-              <select id={field} name={field} defaultValue={invitee[field] ?? ''}>
-                <option value="">No preference</option>
-                {foodOptions
-                  .filter((option) => !option.disabled)
-                  .map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.name}
-                    </option>
-                  ))}
-              </select>
-            </div>
-          ))}
+            <Heading as="h3" size="md">
+              Activity (pick up to 3, ranked)
+            </Heading>
+            {(['activityChoice1', 'activityChoice2', 'activityChoice3'] as const).map(
+              (field, index) => (
+                <FieldGroup key={field} label={`${index + 1}. choice`} htmlFor={field}>
+                  <FormSelect
+                    id={field}
+                    name={field}
+                    placeholder="No preference"
+                    defaultValue={invitee[field] ?? undefined}
+                    options={activitySelectOptions}
+                  />
+                </FieldGroup>
+              ),
+            )}
 
-          <h3>Activity (pick up to 3, ranked)</h3>
-          {(['activityChoice1', 'activityChoice2', 'activityChoice3'] as const).map((field, index) => (
-            <div key={field}>
-              <label htmlFor={field}>{index + 1}. choice</label>
-              <select id={field} name={field} defaultValue={invitee[field] ?? ''}>
-                <option value="">No preference</option>
-                {activityOptions.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ))}
+            <FieldGroup label="What will you bring?" htmlFor="bringItemId">
+              <FormSelect
+                id="bringItemId"
+                name="bringItemId"
+                placeholder="Nothing"
+                defaultValue={invitee.bringItemId ?? undefined}
+                options={bringItemSelectOptions}
+              />
+            </FieldGroup>
 
-          <h3>What will you bring?</h3>
-          <select name="bringItemId" defaultValue={invitee.bringItemId ?? ''}>
-            <option value="">Nothing</option>
-            {bringItems.map((item) => {
-              const claimedByOther = claimedBringItemIds.has(item.id) && item.id !== invitee.bringItemId
-              return (
-                <option key={item.id} value={item.id} disabled={claimedByOther}>
-                  {item.name}
-                  {claimedByOther ? ' (already claimed)' : ''}
-                </option>
-              )
-            })}
-          </select>
-
-          <button type="submit">Confirm RSVP</button>
+            <Button type="submit" alignSelf="flex-start">
+              Confirm RSVP
+            </Button>
+          </Stack>
         </form>
-      </section>
+      </Box>
 
-      <section>
-        <h2>I can&apos;t make it</h2>
+      <Box as="section" borderWidth="1px" borderRadius="lg" p={{ base: 4, md: 6 }}>
+        <Heading as="h2" size="lg" mb={4}>
+          I can&apos;t make it
+        </Heading>
         <form action={declineAction}>
           <input type="hidden" name="eventId" value={eventId} />
-          <label htmlFor="declineReason">Reason (optional)</label>
-          <input
-            type="text"
-            id="declineReason"
-            name="declineReason"
-            defaultValue={invitee.declineReason ?? ''}
-          />
-          <button type="submit">Decline</button>
+          <Stack gap={4}>
+            <FieldGroup label="Reason (optional)" htmlFor="declineReason">
+              <Input
+                id="declineReason"
+                name="declineReason"
+                defaultValue={invitee.declineReason ?? ''}
+              />
+            </FieldGroup>
+            <Button type="submit" variant="outline" alignSelf="flex-start">
+              Decline
+            </Button>
+          </Stack>
         </form>
-      </section>
-    </main>
+      </Box>
+    </PageShell>
   )
 }
