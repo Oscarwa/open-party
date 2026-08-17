@@ -16,6 +16,10 @@ const testDb = drizzle(queryClient, { schema })
 describe('db client', () => {
   beforeAll(async () => {
     await migrate(testDb, { migrationsFolder: './src/db/migrations' })
+    // The round-trip test below inserts a fixed whatsapp_number, which is
+    // unique — without this the suite only passes against a brand-new
+    // database and fails on any second run.
+    await queryClient`truncate table users restart identity cascade`
   })
 
   it('inserts and reads back a user', async () => {
