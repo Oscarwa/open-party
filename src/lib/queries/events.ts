@@ -58,3 +58,65 @@ export async function getInvitees(eventId: string) {
     .where(eq(eventInvitees.eventId, eventId))
     .orderBy(asc(users.name))
 }
+
+export async function getRsvpCounts(eventId: string) {
+  const invitees = await db
+    .select({ rsvpStatus: eventInvitees.rsvpStatus })
+    .from(eventInvitees)
+    .where(eq(eventInvitees.eventId, eventId))
+
+  return {
+    invited: invitees.length,
+    attending: invitees.filter((i) => i.rsvpStatus === 'attending').length,
+    declined: invitees.filter((i) => i.rsvpStatus === 'declined').length,
+    pending: invitees.filter((i) => i.rsvpStatus === 'pending').length,
+  }
+}
+
+function tally(
+  options: { id: string; name: string }[],
+  first: (string | null)[],
+  second: (string | null)[],
+  third: (string | null)[],
+) {
+  return options.map((option) => ({
+    id: option.id,
+    name: option.name,
+    first: first.filter((id) => id === option.id).length,
+    second: second.filter((id) => id === option.id).length,
+    third: third.filter((id) => id === option.id).length,
+  }))
+}
+
+export async function getVotingResults(eventId: string) {
+  const [foodOpts, activityOpts, choices] = await Promise.all([
+    getFoodOptions(eventId),
+    getActivityOptions(eventId),
+    db
+      .select({
+        foodChoice1: eventInvitees.foodChoice1,
+        foodChoice2: eventInvitees.foodChoice2,
+        foodChoice3: eventInvitees.foodChoice3,
+        activityChoice1: eventInvitees.activityChoice1,
+        activityChoice2: eventInvitees.activityChoice2,
+        activityChoice3: eventInvitees.activityChoice3,
+      })
+      .from(eventInvitees)
+      .where(eq(eventInvitees.eventId, eventId)),
+  ])
+
+  return {
+    food: tally(
+      foodOpts,
+      choices.map((c) => c.foodChoice1),
+      choices.map((c) => c.foodChoice2),
+      choices.map((c) => c.foodChoice3),
+    ),
+    activity: tally(
+      activityOpts,
+      choices.map((c) => c.activityChoice1),
+      choices.map((c) => c.activityChoice2),
+      choices.map((c) => c.activityChoice3),
+    ),
+  }
+}

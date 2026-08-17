@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { getEvent, getFoodOptions, getActivityOptions, getBringItems, getInvitees } from '@/lib/queries/events'
+import { getEvent, getFoodOptions, getActivityOptions, getBringItems, getInvitees, getRsvpCounts, getVotingResults } from '@/lib/queries/events'
 import {
   addFoodOptionAction,
   toggleFoodOptionDisabledAction,
@@ -32,6 +32,10 @@ export default async function EventDetailPage({
     getBringItems(id),
     getInvitees(id),
   ])
+
+  const [rsvpCounts, votingResults] = isDraft
+    ? [null, null]
+    : await Promise.all([getRsvpCounts(id), getVotingResults(id)])
 
   return (
     <main>
@@ -178,8 +182,113 @@ export default async function EventDetailPage({
         </section>
       ) : null}
 
-      {/* Later tasks in this plan add
-          dashboard, voting results, and finalize sections here. */}
+      {rsvpCounts ? (
+        <section>
+          <h3>RSVP status</h3>
+          <table>
+            <tbody>
+              <tr>
+                <td>Invited</td>
+                <td>{rsvpCounts.invited}</td>
+              </tr>
+              <tr>
+                <td>Attending</td>
+                <td>{rsvpCounts.attending}</td>
+              </tr>
+              <tr>
+                <td>Declined</td>
+                <td>{rsvpCounts.declined}</td>
+              </tr>
+              <tr>
+                <td>No response</td>
+                <td>{rsvpCounts.pending}</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+      ) : null}
+
+      {rsvpCounts ? (
+        <section>
+          <h3>Attendees</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Person</th>
+                <th>RSVP</th>
+                <th>Food</th>
+                <th>Activity</th>
+                <th>Bringing</th>
+              </tr>
+            </thead>
+            <tbody>
+              {invitees.map((invitee) => (
+                <tr key={invitee.id}>
+                  <td>{invitee.userName}</td>
+                  <td>{invitee.rsvpStatus}</td>
+                  <td>
+                    {foodOptions.find((o) => o.id === invitee.foodChoice1)?.name ?? '—'}
+                  </td>
+                  <td>
+                    {activityOptions.find((o) => o.id === invitee.activityChoice1)?.name ?? '—'}
+                  </td>
+                  <td>
+                    {bringItems.find((i) => i.id === invitee.bringItemId)?.name ?? '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      ) : null}
+
+      {votingResults ? (
+        <section>
+          <h3>Voting results</h3>
+          <h4>Food</h4>
+          <table>
+            <thead>
+              <tr>
+                <th>Option</th>
+                <th>1st</th>
+                <th>2nd</th>
+                <th>3rd</th>
+              </tr>
+            </thead>
+            <tbody>
+              {votingResults.food.map((row) => (
+                <tr key={row.id}>
+                  <td>{row.name}</td>
+                  <td>{row.first}</td>
+                  <td>{row.second}</td>
+                  <td>{row.third}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <h4>Activity</h4>
+          <table>
+            <thead>
+              <tr>
+                <th>Option</th>
+                <th>1st</th>
+                <th>2nd</th>
+                <th>3rd</th>
+              </tr>
+            </thead>
+            <tbody>
+              {votingResults.activity.map((row) => (
+                <tr key={row.id}>
+                  <td>{row.name}</td>
+                  <td>{row.first}</td>
+                  <td>{row.second}</td>
+                  <td>{row.third}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      ) : null}
     </main>
   )
 }
