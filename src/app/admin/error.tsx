@@ -1,6 +1,9 @@
 'use client'
 
-import Link from 'next/link'
+import NextLink from 'next/link'
+import { Alert, Stack, Text } from '@chakra-ui/react'
+import { PageShell } from '@/components/PageShell'
+import { Button } from '@/components/Button'
 
 // Next.js error boundary for every route under /admin. Server actions in
 // src/lib/events.ts throw EventActionError with admin-facing messages
@@ -16,18 +19,24 @@ export default function AdminError({
   reset: () => void
 }) {
   return (
-    <main>
-      <h2>Something went wrong</h2>
-      <p>{error.message || 'An unexpected error occurred.'}</p>
-      {error.digest ? <p>Error reference: {error.digest}</p> : null}
-      <p>
-        <button type="button" onClick={() => reset()}>
-          Try again
-        </button>
-      </p>
-      <p>
-        <Link href="/admin">Back to events</Link>
-      </p>
-    </main>
+    <PageShell title="Something went wrong">
+      <Alert.Root status="error">
+        <Alert.Indicator />
+        <Alert.Content>
+          <Alert.Description>{error.message || 'An unexpected error occurred.'}</Alert.Description>
+        </Alert.Content>
+      </Alert.Root>
+      {error.digest ? (
+        <Text color="fg.muted" fontSize="sm">
+          Error reference: {error.digest}
+        </Text>
+      ) : null}
+      <Stack direction="row" gap={3}>
+        <Button onClick={() => reset()}>Try again</Button>
+        <Button asChild variant="outline">
+          <NextLink href="/admin">Back to events</NextLink>
+        </Button>
+      </Stack>
+    </PageShell>
   )
 }
