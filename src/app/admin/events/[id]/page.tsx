@@ -10,6 +10,7 @@ import {
   deleteBringItemAction,
   addInviteeAction,
   removeInviteeAction,
+  publishEventAction,
 } from '@/lib/actions/events'
 
 export default async function EventDetailPage({
@@ -150,7 +151,34 @@ export default async function EventDetailPage({
         ) : null}
       </section>
 
-      {/* Later tasks in this plan add publish,
+      {isDraft ? (
+        <section>
+          <h3>Publish</h3>
+          <form action={publishEventAction}>
+            <input type="hidden" name="eventId" value={event.id} />
+            <button type="submit">Publish &amp; Invite</button>
+          </form>
+        </section>
+      ) : null}
+
+      {!isDraft ? (
+        <section>
+          <h3>Invite links</h3>
+          <p>
+            WhatsApp sending isn&apos;t wired up yet — share these links manually
+            to test the RSVP flow.
+          </p>
+          <ul>
+            {invitees.map((invitee) => (
+              <li key={invitee.id}>
+                {invitee.userName}: <code>/e/{invitee.inviteToken}</code>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {/* Later tasks in this plan add
           dashboard, voting results, and finalize sections here. */}
     </main>
   )

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { eq } from 'drizzle-orm'
+import { count, eq } from 'drizzle-orm'
 import { db } from '@/db/client'
 import { events } from '@/db/schema'
 import { activityOptions, bringItems, foodOptions, eventInvitees, users } from '@/db/schema'
@@ -167,4 +167,60 @@ export async function removeInvitee(eventInviteeId: string) {
   const event = await getEventOrThrow(invitee.eventId)
   assertDraft(event)
   await db.delete(eventInvitees).where(eq(eventInvitees.id, eventInviteeId))
+}
+
+export async function publishEvent(eventId: string) {
+  const event = await getEventOrThrow(eventId)
+  assertDraft(event)
+
+  const [[{ foodCount }], [{ activityCount }], [{ inviteeCount }]] = await Promise.all([
+    db
+      .select({ foodCount: count() })
+      .from(foodOptions)
+      .where(eq(foodOptions.eventId, eventId)),
+    db
+      .select({ activityCount: count() })
+      .from(activityOptions)
+      .where(eq(activityOptions.eventId, eventId)),
+    db
+      .select({ inviteeCount: count() })
+      .from(eventInvitees)
+      .where(eq(eventInvitees.eventId, eventId)),
+  ])
+
+  if (foodCount === 0) {
+    throw new EventActionError('Add at least one food option before publishing')
+  }
+  if (activityCount === 0) {
+    throw new EventActionError('Add at least one activity option before publishing')
+  }
+  if (inviteeCount === 0) {
+    throw new EventActionError('Invite at least one person before publishing')
+  }
+
+  const invitees = await db
+    .select()
+    .from(eventInvitees)
+    .where(eq(eventInvitees.eventId, eventId))
+
+  // Real expiry: the event's date/time plus five days' grace, so an
+  // attendee can still view finalized details shortly after the event.
+  const tokenExpiresAt = new Date(`${event.date}T${event.startTime}Z`)
+  tokenExpiresAt.setDate(tokenExpiresAt.getDate() + 5)
+
+  await Promise.all(
+    invitees.map((invitee) =>
+      db
+        .update(eventInvitees)
+        .set({ inviteToken: randomUUID(), tokenExpiresAt })
+        .where(eq(eventInvitees.id, invitee.id)),
+    ),
+  )
+
+  const [updated] = await db
+    .update(events)
+    .set({ status: 'published' })
+    .where(eq(events.id, eventId))
+    .returning()
+  return updated
 }

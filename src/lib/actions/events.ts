@@ -14,6 +14,7 @@ import {
   deleteBringItem,
   addInvitee,
   removeInvitee,
+  publishEvent,
 } from '@/lib/events'
 
 const createEventSchema = z.object({
@@ -118,5 +119,12 @@ export async function removeInviteeAction(formData: FormData) {
   const eventId = formData.get('eventId')
   const { id } = idSchema.parse({ id: formData.get('id') })
   await removeInvitee(id)
+  revalidatePath(`/admin/events/${eventId}`)
+}
+
+export async function publishEventAction(formData: FormData) {
+  const eventId = formData.get('eventId')
+  if (typeof eventId !== 'string') throw new Error('Missing eventId')
+  await publishEvent(eventId)
   revalidatePath(`/admin/events/${eventId}`)
 }

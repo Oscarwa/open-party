@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 import { eq, sql } from 'drizzle-orm'
 import { db } from '../../src/db/client'
-import { events } from '../../src/db/schema'
+import { events, eventInvitees } from '../../src/db/schema'
 import {
   createEvent,
   addFoodOption,
@@ -13,6 +13,7 @@ import {
   deleteBringItem,
   addInvitee,
   removeInvitee,
+  publishEvent,
   EventActionError,
 } from '../../src/lib/events'
 
@@ -188,5 +189,74 @@ describe('invitees', () => {
     await removeInvitee(invitee.id)
     const remaining = await addInvitee(event.id, 'Carlos', '+15559990004')
     expect(remaining.id).not.toBe(invitee.id)
+  })
+})
+
+describe('publishEvent', () => {
+  it('rejects publishing with no food option', async () => {
+    const event = await createEvent({
+      title: 'No Food Event',
+      date: '2026-09-18',
+      startTime: '18:00',
+    })
+    await addActivityOption(event.id, 'Board Games')
+    await addInvitee(event.id, 'Oscar', '+15559990005')
+    await expect(publishEvent(event.id)).rejects.toThrow(/food option/)
+  })
+
+  it('rejects publishing with no activity option', async () => {
+    const event = await createEvent({
+      title: 'No Activity Event',
+      date: '2026-09-19',
+      startTime: '18:00',
+    })
+    await addFoodOption(event.id, 'Tacos')
+    await addInvitee(event.id, 'Oscar', '+15559990006')
+    await expect(publishEvent(event.id)).rejects.toThrow(/activity option/)
+  })
+
+  it('rejects publishing with no invitees', async () => {
+    const event = await createEvent({
+      title: 'No Invitees Event',
+      date: '2026-09-20',
+      startTime: '18:00',
+    })
+    await addFoodOption(event.id, 'Tacos')
+    await addActivityOption(event.id, 'Board Games')
+    await expect(publishEvent(event.id)).rejects.toThrow(/invite at least one/i)
+  })
+
+  it('publishes a fully-configured event and generates usable tokens', async () => {
+    const event = await createEvent({
+      title: 'Publishable Event',
+      date: '2026-09-21',
+      startTime: '18:00',
+    })
+    await addFoodOption(event.id, 'Tacos')
+    await addActivityOption(event.id, 'Board Games')
+    const invitee = await addInvitee(event.id, 'Oscar', '+15559990007')
+
+    const published = await publishEvent(event.id)
+    expect(published.status).toBe('published')
+
+    const [refreshed] = await db
+      .select()
+      .from(eventInvitees)
+      .where(eq(eventInvitees.id, invitee.id))
+    expect(refreshed.inviteToken).not.toBe(invitee.inviteToken)
+    expect(refreshed.tokenExpiresAt.getTime()).toBeGreaterThan(Date.now())
+  })
+
+  it('rejects publishing an already-published event', async () => {
+    const event = await createEvent({
+      title: 'Double Publish Event',
+      date: '2026-09-22',
+      startTime: '18:00',
+    })
+    await addFoodOption(event.id, 'Tacos')
+    await addActivityOption(event.id, 'Board Games')
+    await addInvitee(event.id, 'Oscar', '+15559990008')
+    await publishEvent(event.id)
+    await expect(publishEvent(event.id)).rejects.toThrow(EventActionError)
   })
 })
