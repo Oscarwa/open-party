@@ -1,28 +1,31 @@
+import { Input, Stack, Textarea } from '@chakra-ui/react'
 import { createEventAction } from '@/lib/actions/events'
+import { PageShell } from '@/components/PageShell'
+import { FieldGroup } from '@/components/FieldGroup'
+import { Button } from '@/components/Button'
 
 export default function NewEventPage() {
   return (
-    <main>
-      <h2>New Event</h2>
+    <PageShell title="New Event">
       <form action={createEventAction}>
-        <div>
-          <label htmlFor="title">Title</label>
-          <input type="text" id="title" name="title" required />
-        </div>
-        <div>
-          <label htmlFor="date">Date</label>
-          <input type="date" id="date" name="date" required />
-        </div>
-        <div>
-          <label htmlFor="startTime">Start time</label>
-          <input type="time" id="startTime" name="startTime" required />
-        </div>
-        <div>
-          <label htmlFor="description">Description (optional)</label>
-          <textarea id="description" name="description" />
-        </div>
-        <button type="submit">Create Event</button>
+        <Stack gap={5}>
+          <FieldGroup label="Title" htmlFor="title">
+            <Input id="title" name="title" required />
+          </FieldGroup>
+          <FieldGroup label="Date" htmlFor="date">
+            <Input id="date" name="date" type="date" required />
+          </FieldGroup>
+          <FieldGroup label="Start time" htmlFor="startTime">
+            <Input id="startTime" name="startTime" type="time" required />
+          </FieldGroup>
+          <FieldGroup label="Description (optional)" htmlFor="description">
+            <Textarea id="description" name="description" />
+          </FieldGroup>
+          <Button type="submit" alignSelf="flex-start">
+            Create Event
+          </Button>
+        </Stack>
       </form>
-    </main>
+    </PageShell>
   )
 }

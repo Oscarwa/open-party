@@ -1,5 +1,8 @@
-import Link from 'next/link'
+import NextLink from 'next/link'
+import { Link as ChakraLink, Stack, Text } from '@chakra-ui/react'
 import { listEvents } from '@/lib/queries/events'
+import { PageShell } from '@/components/PageShell'
+import { Button } from '@/components/Button'
 
 // Without this, Next.js statically prerenders this page at build time
 // (nothing here uses a dynamic API like cookies()/headers()/searchParams
@@ -12,24 +15,26 @@ export default async function AdminEventsPage() {
   const events = await listEvents()
 
   return (
-    <main>
-      <h2>Events</h2>
-      <p>
-        <Link href="/admin/events/new">New Event</Link>
-      </p>
+    <PageShell title="Events">
+      <Button asChild alignSelf="flex-start">
+        <NextLink href="/admin/events/new">New Event</NextLink>
+      </Button>
       {events.length === 0 ? (
-        <p>No events yet.</p>
+        <Text color="fg.muted">No events yet.</Text>
       ) : (
-        <ul>
+        <Stack gap={4}>
           {events.map((event) => (
-            <li key={event.id}>
-              <Link href={`/admin/events/${event.id}`}>{event.title}</Link>
-              {' — '}
-              {event.date} {event.startTime} · {event.status}
-            </li>
+            <Stack key={event.id} gap={1} borderWidth="1px" borderRadius="lg" p={4}>
+              <ChakraLink asChild fontWeight="semibold">
+                <NextLink href={`/admin/events/${event.id}`}>{event.title}</NextLink>
+              </ChakraLink>
+              <Text color="fg.muted" fontSize="sm">
+                {event.date} {event.startTime} · {event.status}
+              </Text>
+            </Stack>
           ))}
-        </ul>
+        </Stack>
       )}
-    </main>
+    </PageShell>
   )
 }

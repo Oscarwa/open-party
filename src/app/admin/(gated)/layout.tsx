@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
+import { Box, Heading, HStack } from '@chakra-ui/react'
 import { logoutAction } from '@/lib/actions/auth'
+import { Button } from '@/components/Button'
 
 // Layout for the gated admin routes only. Every route under this `(gated)`
 // route group is behind src/middleware.ts's session check, so admin-only
@@ -12,14 +14,24 @@ import { logoutAction } from '@/lib/actions/auth'
 // `(gated)/events/new/page.tsx` still serves `/admin/events/new`.
 export default function GatedAdminLayout({ children }: { children: ReactNode }) {
   return (
-    <div>
-      <header>
-        <h1>Open Party — Admin</h1>
+    <Box>
+      <HStack
+        as="header"
+        justify="space-between"
+        px={{ base: 4, md: 6 }}
+        py={4}
+        borderBottomWidth="1px"
+      >
+        <Heading as="h1" size="md">
+          Open Party — Admin
+        </Heading>
         <form action={logoutAction}>
-          <button type="submit">Log out</button>
+          <Button type="submit" size="sm" variant="outline">
+            Log out
+          </Button>
         </form>
-      </header>
+      </HStack>
       {children}
-    </div>
+    </Box>
   )
 }
