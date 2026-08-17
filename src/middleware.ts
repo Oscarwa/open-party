@@ -1,30 +1,31 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { loadEnv } from '@/lib/env'
+import { SESSION_COOKIE_NAME, verifySessionToken } from '@/lib/adminSession'
 
-// When Tailscale serves this app to the Tailnet (`tailscale serve`), it
-// attaches an identity header for the authenticated Tailnet user.
-//
-// PRIMARY BOUNDARY: the deployment's Tailscale Funnel path configuration.
-// Funnel is only ever pointed at public path prefixes, never at anything
-// reaching /admin (see docs/deploy/tailscale.md). That config — not this
-// file — is what keeps /admin off the public internet.
-//
-// DEFENSE IN DEPTH: the header check below, meant to survive a Funnel
-// misconfiguration that accidentally exposes /admin. Its effectiveness
-// rests on an assumption we have NOT verified: that Tailscale strips or
-// overrides a client-supplied Tailscale-User-Login header on
-// Funnel-origin requests. If it does not, a public attacker can forge the
-// header and this check is worthless. docs/deploy/tailscale.md step 4
-// gives operators a curl-based check to run against their own deployment.
-// Never relax the Funnel path config on the strength of this check.
-const TAILSCALE_IDENTITY_HEADER = 'Tailscale-User-Login'
+// /admin is intentionally public (reachable at the Funnel URL) — see
+// docs/deploy/tailscale.md. The ONLY thing gating it is a valid, signed
+// session cookie, set by src/lib/actions/auth.ts's loginAction after a
+// correct ADMIN_PASSWORD check. /admin/login itself must stay reachable
+// unconditionally, or nobody could ever log in.
+const LOGIN_PATH = '/admin/login'
 
-export function middleware(request: NextRequest) {
-  if (request.nextUrl.pathname.startsWith('/admin')) {
-    const identity = request.headers.get(TAILSCALE_IDENTITY_HEADER)
-    if (!identity) {
-      return new NextResponse('Not found', { status: 404 })
-    }
+export async function middleware(request: NextRequest) {
+  if (!request.nextUrl.pathname.startsWith('/admin')) {
+    return NextResponse.next()
   }
+
+  if (request.nextUrl.pathname === LOGIN_PATH) {
+    return NextResponse.next()
+  }
+
+  const token = request.cookies.get(SESSION_COOKIE_NAME)?.value
+  const env = loadEnv()
+  const isValid = token ? await verifySessionToken(token, env.SESSION_SECRET) : false
+
+  if (!isValid) {
+    return NextResponse.redirect(new URL(LOGIN_PATH, request.url))
+  }
+
   return NextResponse.next()
 }
 
