@@ -1,4 +1,8 @@
+import { Alert, Input, Stack } from '@chakra-ui/react'
 import { loginAction } from '@/lib/actions/auth'
+import { PageShell } from '@/components/PageShell'
+import { FieldGroup } from '@/components/FieldGroup'
+import { Button } from '@/components/Button'
 
 export default async function AdminLoginPage({
   searchParams,
@@ -6,21 +10,33 @@ export default async function AdminLoginPage({
   searchParams: Promise<{ error?: string }>
 }) {
   const { error } = await searchParams
+  const errorMessage =
+    error === 'invalid_password'
+      ? 'Incorrect password.'
+      : error === 'rate_limited'
+        ? 'Too many attempts. Try again in a few minutes.'
+        : null
 
   return (
-    <main>
-      <h2>Admin Login</h2>
-      {error === 'invalid_password' ? <p>Incorrect password.</p> : null}
-      {error === 'rate_limited' ? (
-        <p>Too many attempts. Try again in a few minutes.</p>
+    <PageShell title="Admin Login">
+      {errorMessage ? (
+        <Alert.Root status="error">
+          <Alert.Indicator />
+          <Alert.Content>
+            <Alert.Description>{errorMessage}</Alert.Description>
+          </Alert.Content>
+        </Alert.Root>
       ) : null}
       <form action={loginAction}>
-        <div>
-          <label htmlFor="password">Password</label>
-          <input type="password" id="password" name="password" required />
-        </div>
-        <button type="submit">Log in</button>
+        <Stack gap={5}>
+          <FieldGroup label="Password" htmlFor="password">
+            <Input id="password" name="password" type="password" required />
+          </FieldGroup>
+          <Button type="submit" alignSelf="flex-start">
+            Log in
+          </Button>
+        </Stack>
       </form>
-    </main>
+    </PageShell>
   )
 }
