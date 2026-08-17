@@ -3,6 +3,7 @@
 import { z } from 'zod'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { requireAdminSession } from '@/lib/actions/auth'
 import { createEvent } from '@/lib/events'
 import {
   addFoodOption,
@@ -18,6 +19,11 @@ import {
   finalizeEvent,
 } from '@/lib/events'
 
+// Every action in this file starts with `await requireAdminSession()`. These
+// are their own POST endpoints, independent of the middleware-gated pages
+// that render the forms, so each one authenticates for itself rather than
+// inheriting trust from the page tree. Any new mutating action added here
+// must do the same.
 const createEventSchema = z.object({
   title: z.string().trim().min(1, 'Title is required'),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD'),
@@ -26,6 +32,7 @@ const createEventSchema = z.object({
 })
 
 export async function createEventAction(formData: FormData) {
+  await requireAdminSession()
   const parsed = createEventSchema.parse({
     title: formData.get('title'),
     date: formData.get('date'),
@@ -47,6 +54,7 @@ const optionNameSchema = z.object({
 const idSchema = z.object({ id: z.string().uuid() })
 
 export async function addFoodOptionAction(formData: FormData) {
+  await requireAdminSession()
   const parsed = optionNameSchema.parse({
     eventId: formData.get('eventId'),
     name: formData.get('name'),
@@ -56,12 +64,14 @@ export async function addFoodOptionAction(formData: FormData) {
 }
 
 export async function toggleFoodOptionDisabledAction(formData: FormData) {
+  await requireAdminSession()
   const { id } = idSchema.parse({ id: formData.get('id') })
   const option = await toggleFoodOptionDisabled(id)
   revalidatePath(`/admin/events/${option.eventId}`)
 }
 
 export async function deleteFoodOptionAction(formData: FormData) {
+  await requireAdminSession()
   const eventId = formData.get('eventId')
   const { id } = idSchema.parse({ id: formData.get('id') })
   await deleteFoodOption(id)
@@ -69,6 +79,7 @@ export async function deleteFoodOptionAction(formData: FormData) {
 }
 
 export async function addActivityOptionAction(formData: FormData) {
+  await requireAdminSession()
   const parsed = optionNameSchema.parse({
     eventId: formData.get('eventId'),
     name: formData.get('name'),
@@ -78,6 +89,7 @@ export async function addActivityOptionAction(formData: FormData) {
 }
 
 export async function deleteActivityOptionAction(formData: FormData) {
+  await requireAdminSession()
   const eventId = formData.get('eventId')
   const { id } = idSchema.parse({ id: formData.get('id') })
   await deleteActivityOption(id)
@@ -85,6 +97,7 @@ export async function deleteActivityOptionAction(formData: FormData) {
 }
 
 export async function addBringItemAction(formData: FormData) {
+  await requireAdminSession()
   const parsed = optionNameSchema.parse({
     eventId: formData.get('eventId'),
     name: formData.get('name'),
@@ -94,6 +107,7 @@ export async function addBringItemAction(formData: FormData) {
 }
 
 export async function deleteBringItemAction(formData: FormData) {
+  await requireAdminSession()
   const eventId = formData.get('eventId')
   const { id } = idSchema.parse({ id: formData.get('id') })
   await deleteBringItem(id)
@@ -107,6 +121,7 @@ const addInviteeSchema = z.object({
 })
 
 export async function addInviteeAction(formData: FormData) {
+  await requireAdminSession()
   const parsed = addInviteeSchema.parse({
     eventId: formData.get('eventId'),
     name: formData.get('name'),
@@ -117,6 +132,7 @@ export async function addInviteeAction(formData: FormData) {
 }
 
 export async function removeInviteeAction(formData: FormData) {
+  await requireAdminSession()
   const eventId = formData.get('eventId')
   const { id } = idSchema.parse({ id: formData.get('id') })
   await removeInvitee(id)
@@ -124,6 +140,7 @@ export async function removeInviteeAction(formData: FormData) {
 }
 
 export async function publishEventAction(formData: FormData) {
+  await requireAdminSession()
   const eventId = formData.get('eventId')
   if (typeof eventId !== 'string') throw new Error('Missing eventId')
   await publishEvent(eventId)
@@ -137,6 +154,7 @@ const finalizeSchema = z.object({
 })
 
 export async function finalizeEventAction(formData: FormData) {
+  await requireAdminSession()
   const parsed = finalizeSchema.parse({
     eventId: formData.get('eventId'),
     finalFoodOptionId: formData.get('finalFoodOptionId'),

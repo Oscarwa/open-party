@@ -4,7 +4,11 @@ import { timingSafeEqual } from 'node:crypto'
 import { cookies, headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { loadEnv } from '@/lib/env'
-import { createSessionToken, SESSION_COOKIE_NAME } from '@/lib/adminSession'
+import {
+  createSessionToken,
+  verifySessionToken,
+  SESSION_COOKIE_NAME,
+} from '@/lib/adminSession'
 import { isRateLimited, recordFailedAttempt } from '@/lib/loginRateLimit'
 
 function passwordsMatch(input: string, expected: string): boolean {
@@ -17,30 +21,53 @@ function passwordsMatch(input: string, expected: string): boolean {
   return timingSafeEqual(inputBuffer, expectedBuffer)
 }
 
-// Tailscale Funnel is expected to forward X-Forwarded-For with the real
-// client IP (standard reverse-proxy behavior), but this hasn't been
-// independently verified against this specific deployment the way the
-// old Tailscale-User-Login header behavior was (see the removed
-// docs/deploy/tailscale.md verification step this plan's Task 6 deletes).
-// If it's ever absent, every caller shares one 'global' bucket — a real
-// but strictly worse-than-per-IP rate limit, not a silent bypass.
+// Derives the per-client rate-limit key from X-Forwarded-For.
+//
+// We take the RIGHTMOST entry, not the leftmost. A reverse-proxy chain
+// APPENDS each hop to the right, so the leftmost entry is whatever the
+// original client claimed — fully attacker-controlled. An attacker sending
+// a different fake leftmost IP on every request would otherwise get a fresh
+// rate-limit bucket each time, defeating the lockout entirely. The rightmost
+// entry is written by the last proxy in front of this app (Tailscale Funnel
+// here), i.e. by infrastructure we control, so it's the only entry worth
+// trusting.
+//
+// Two known weaknesses, both bounded by the global backstop in loginAction:
+//   - If the header is absent (or empty after parsing), every caller shares
+//     the 'global' bucket — worse than per-IP, but not a bypass.
+//   - If a second trusted hop is ever added in front of Funnel, the
+//     rightmost entry becomes that hop's address and again collapses all
+//     callers into one bucket. Also degraded, still not a bypass.
 async function getClientKey(): Promise<string> {
   const headerList = await headers()
   const forwardedFor = headerList.get('x-forwarded-for')
-  return forwardedFor ? forwardedFor.split(',')[0].trim() : 'global'
+  if (!forwardedFor) return 'global'
+  const hops = forwardedFor
+    .split(',')
+    .map((hop) => hop.trim())
+    .filter(Boolean)
+  return hops.pop() ?? 'global'
 }
+
+// A fixed key counted alongside the per-client key, so total login attempts
+// are capped even when per-client keying degrades (header absent, extra
+// trusted hop collapsing every caller into one bucket, etc.). Prefixed and
+// suffixed so it can't collide with a real IP-shaped key.
+const GLOBAL_RATE_LIMIT_KEY = '__global__'
 
 export async function loginAction(formData: FormData) {
   const env = loadEnv()
   const key = await getClientKey()
 
-  if (isRateLimited(key)) {
+  // Limited if EITHER bucket is exhausted; a failure increments BOTH.
+  if (isRateLimited(key) || isRateLimited(GLOBAL_RATE_LIMIT_KEY)) {
     redirect('/admin/login?error=rate_limited')
   }
 
   const password = formData.get('password')
   if (typeof password !== 'string' || !passwordsMatch(password, env.ADMIN_PASSWORD)) {
     recordFailedAttempt(key)
+    recordFailedAttempt(GLOBAL_RATE_LIMIT_KEY)
     redirect('/admin/login?error=invalid_password')
   }
 
@@ -55,6 +82,25 @@ export async function loginAction(formData: FormData) {
   })
 
   redirect('/admin')
+}
+
+// Defence in depth for state-mutating Server Actions. src/middleware.ts
+// gates the *pages* that render admin forms, but a Server Action is its own
+// POST endpoint: whether an action ID is reachable without having loaded a
+// gated page depends on Next.js's internal action-manifest scoping, which is
+// framework behavior this app shouldn't stake its only auth boundary on. So
+// every mutating action re-checks the session itself.
+//
+// Throws rather than redirecting: a thrown error surfaces through
+// src/app/admin/error.tsx, the same path EventActionError already takes.
+export async function requireAdminSession(): Promise<void> {
+  const env = loadEnv()
+  const cookieStore = await cookies()
+  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value
+  const isValid = token ? await verifySessionToken(token, env.SESSION_SECRET) : false
+  if (!isValid) {
+    throw new Error('Not authenticated. Please log in again.')
+  }
 }
 
 export async function logoutAction() {

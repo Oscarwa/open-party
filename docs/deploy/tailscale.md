@@ -23,9 +23,23 @@ not something reused elsewhere — and keep `.env` off any machine or
 channel you wouldn't trust with full admin access (create/edit/publish
 events, see every guest's WhatsApp number).
 
-Login attempts are rate-limited in-memory (5 failures per IP per 15
-minutes) as a basic brute-force deterrent — not a substitute for a strong
-password. The limiter resets on every redeploy and doesn't survive
+Login attempts are rate-limited in-memory as a basic brute-force deterrent
+— not a substitute for a strong password. Two counters apply, and a failure
+increments both; an attempt is blocked if either is exhausted:
+
+- **Per client IP:** 5 failures per 15 minutes, keyed on the *rightmost*
+  entry of `X-Forwarded-For` — the hop written by Funnel itself. The
+  leftmost entry is whatever the client claimed and is not trusted, so
+  spoofing that header doesn't earn a fresh bucket.
+- **Global ceiling:** 5 failures per 15 minutes across all callers, as a
+  backstop for the cases where per-IP keying degrades into one shared
+  bucket (no `X-Forwarded-For` at all, or an extra trusted proxy hop in
+  front of Funnel making the rightmost entry that proxy's address).
+
+Per-IP limiting is therefore best-effort; the global ceiling is the
+guarantee. Note the flip side: 5 failed attempts from anywhere lock out
+*everyone* — including you — for 15 minutes. Acceptable for a single-admin
+homelab app. Both counters reset on every redeploy and don't survive
 multiple app instances.
 
 1. Serve the full app to your Tailnet. Since `/admin` no longer depends on
