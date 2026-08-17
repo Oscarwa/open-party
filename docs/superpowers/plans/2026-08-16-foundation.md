@@ -1067,15 +1067,10 @@ will catch it.
 The deployed container does not run migrations on startup, by design —
 this is a homelab-scale deployment and a documented manual step is the
 right amount of machinery. The image ships the SQL under
-`/app/src/db/migrations` for reference, but you apply migrations from a
-machine that has Node and this repo checked out and can reach the
-production Postgres:
-
-```bash
-# from a checkout of this repo, with dependencies installed (npm ci)
-DATABASE_URL='postgres://<user>:<pass>@<prod-host>:<port>/<db>' \
-  npm run db:migrate
-```
+`/app/src/db/migrations` for reference, but you apply migrations with
+`npm run db:migrate` from a machine that has Node and this repo checked
+out (`npm ci`) and can reach the production Postgres — see the exact
+command below.
 
 `npm run db:migrate` (`scripts/migrate.ts`) is idempotent: it applies only
 migrations not yet recorded in the target database, so re-running it is
