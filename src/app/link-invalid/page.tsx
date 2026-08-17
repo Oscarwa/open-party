@@ -1,11 +1,13 @@
+import { Text } from '@chakra-ui/react'
+import { PageShell } from '@/components/PageShell'
+
 export default function LinkInvalidPage() {
   return (
-    <main>
-      <h1>This link isn&apos;t valid anymore</h1>
-      <p>
-        It may have expired, or the address may be mistyped. Ask the
-        organizer to resend your invitation.
-      </p>
-    </main>
+    <PageShell title="This link isn't valid anymore">
+      <Text color="fg.muted">
+        It may have expired, or the address may be mistyped. Ask the organizer to resend your
+        invitation.
+      </Text>
+    </PageShell>
   )
 }
