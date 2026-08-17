@@ -21,13 +21,20 @@ status` every time you change it.
 The intent is to survive a Funnel misconfiguration that accidentally
 exposes `/admin`.
 
-Its effectiveness rests on an assumption we have **not verified**: that
-Tailscale strips/overrides a client-supplied `Tailscale-User-Login` header
-on Funnel-origin requests. If it does not, a public attacker can simply
-set that header themselves and the middleware waves them through. Treat
-this as unproven until you run the check in step 4 on your own deployment.
-Do not weaken the Funnel path config on the assumption that the middleware
-will catch it.
+Its effectiveness rests on an assumption that Tailscale strips/overrides a
+client-supplied `Tailscale-User-Login` header on Funnel-origin requests.
+
+**Confirmed 2026-08-16** against this deployment (Tailscale client on
+macOS, `tailscale funnel --bg 3100`, real public request via
+`https://homelab.tail5d41d7.ts.net`): a forged
+`Tailscale-User-Login: attacker@example.com` header sent over the public
+Funnel URL still got `404` on `/admin`, while the identical request sent
+directly to the container's local port (bypassing Tailscale) got `200` —
+confirming Tailscale discards the header on the Funnel path and the
+middleware's check is meaningful. This was verified for one specific
+client version/setup, not guaranteed forever — re-run the check in step 4
+after any Tailscale upgrade, and don't weaken the Funnel path config on
+the assumption that the middleware will always catch it.
 
 1. Serve the full app to your Tailnet only. This is what makes `/admin`
    reachable to you:
