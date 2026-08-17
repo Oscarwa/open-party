@@ -10,6 +10,17 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# Next.js evaluates every route module (including dynamic ones) during its
+# build-time "collect page data" phase, which transitively imports
+# src/db/client.ts and runs loadEnv() at module-import time. These are
+# shape-valid placeholders only — no real secret, no live connection is
+# attempted at build time (postgres.js connects lazily) — and they do not
+# carry over to the runner stage below (Docker multi-stage builds don't
+# propagate ENV across stages unless re-declared).
+ENV DATABASE_URL="postgres://build:build@localhost:5432/build"
+ENV WAHA_URL="http://build:3000"
+ENV WAHA_SESSION="build"
+ENV SESSION_SECRET="build-time-placeholder-not-a-real-secret-32c"
 RUN npm run build
 
 FROM base AS runner
