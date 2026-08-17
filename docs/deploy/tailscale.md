@@ -8,84 +8,57 @@ them, since this CLI has changed across Tailscale releases.
 
 ## Security model for /admin
 
-**The Funnel path configuration is the primary boundary.** `/admin` stays
-private because Funnel is only ever configured to expose the public path
-prefixes — never a path that reaches `/admin`. Everything public rides on
-Funnel; everything private is reachable only over the Tailnet via
-`tailscale serve`. Getting step 2 below right is what actually keeps
-`/admin` off the public internet, so verify it with `tailscale funnel
-status` every time you change it.
+**/admin is intentionally public.** Tailnet placement is no longer any
+part of the admin security boundary — Funnel exposes the entire app (see
+step 2 below), `/admin` included, and the app's own middleware
+(`src/middleware.ts`) gates every `/admin/*` route (except `/admin/login`
+itself) behind a real password, checked via a signed, 30-day session
+cookie. There is no Tailscale-specific check left in the app; a device
+reaching `/admin` from anywhere on the internet sees the same login page a
+Tailnet device would.
 
-**The app's middleware is defense in depth.** `src/middleware.ts` 404s any
-`/admin/*` request that does not carry a `Tailscale-User-Login` header.
-The intent is to survive a Funnel misconfiguration that accidentally
-exposes `/admin`.
+This means the `ADMIN_PASSWORD` environment variable **is** the entire
+security boundary for the admin panel. Use a long, random, unique value —
+not something reused elsewhere — and keep `.env` off any machine or
+channel you wouldn't trust with full admin access (create/edit/publish
+events, see every guest's WhatsApp number).
 
-Its effectiveness rests on an assumption that Tailscale strips/overrides a
-client-supplied `Tailscale-User-Login` header on Funnel-origin requests.
+Login attempts are rate-limited in-memory (5 failures per IP per 15
+minutes) as a basic brute-force deterrent — not a substitute for a strong
+password. The limiter resets on every redeploy and doesn't survive
+multiple app instances.
 
-**Confirmed 2026-08-16** against this deployment (Tailscale client on
-macOS, `tailscale funnel --bg 3100`, real public request via
-`https://homelab.tail5d41d7.ts.net`): a forged
-`Tailscale-User-Login: attacker@example.com` header sent over the public
-Funnel URL still got `404` on `/admin`, while the identical request sent
-directly to the container's local port (bypassing Tailscale) got `200` —
-confirming Tailscale discards the header on the Funnel path and the
-middleware's check is meaningful. This was verified for one specific
-client version/setup, not guaranteed forever — re-run the check in step 4
-after any Tailscale upgrade, and don't weaken the Funnel path config on
-the assumption that the middleware will always catch it.
-
-1. Serve the full app to your Tailnet only. This is what makes `/admin`
-   reachable to you:
+1. Serve the full app to your Tailnet. Since `/admin` no longer depends on
+   Tailnet placement for security, this is now purely a convenience
+   (browsing via the tailnet hostname instead of the public one), not a
+   security control:
 
    ```
    tailscale serve --bg 3000
    ```
 
-2. Expose ONLY the public routes to the internet via Funnel. Some
-   Tailscale versions treat `--set-path=/` as "funnel the whole port"
-   (which would expose `/admin` at the config level — exactly the
-   situation the primary boundary is supposed to prevent) rather than an
-   exact match on the literal `/` path. Run `tailscale funnel status`
-   afterwards and confirm it lists only the paths you intended:
+2. Expose the app to the public internet via Funnel — the whole app,
+   `/admin` included, is meant to be reachable here:
 
    ```
-   tailscale funnel --bg --set-path=/ 3000
+   tailscale funnel --bg 3000
    ```
 
-   As the app grows past this single public route, prefer mounting
-   specific public route prefixes (e.g. `--set-path=/e` for the RSVP
-   pages added in a later phase) instead of relying on the root mount,
-   and never add a path prefix under `/admin`.
+   Run `tailscale funnel status` to confirm.
 
-3. Verify normal behaviour:
-   - From a device on your Tailnet: `https://<magicdns-name>.ts.net/admin`
-     should load the admin stub page.
-   - From a device off your Tailnet (e.g. phone on cellular data):
-     `https://<magicdns-name>.ts.net/` should load the public stub page,
-     and `https://<magicdns-name>.ts.net/admin` should return "Not found".
-
-4. Verify the defense-in-depth layer actually holds (do this once, from an
-   off-Tailnet device, after your first deploy and after any Tailscale
-   upgrade). Try to forge the identity header against the public Funnel
-   URL:
-
-   ```
-   curl -i -H 'Tailscale-User-Login: attacker@example.com' \
-     https://<magicdns-name>.ts.net/admin
-   ```
-
-   Expected: `404` with "Not found" — Tailscale discarded your header and
-   the middleware rejected the request.
-
-   If you get the admin page instead, the header is **not** being
-   stripped: the middleware is bypassable from the public internet and
-   provides no protection at all. In that case the Funnel path config is
-   your only boundary, so audit it (`tailscale funnel status`) and make
-   certain nothing under `/admin` is exposed. File this as a bug against
-   the app — the middleware would then need a stronger signal than a
-   plain header to gate on.
+3. Verify:
+   - From any device, anywhere: `https://<magicdns-name>.ts.net/admin`
+     should redirect to `/admin/login` and show the login form.
+   - Submit the wrong password: you should see "Incorrect password" and
+     stay on the login page.
+   - Submit it wrong 5 times in a row: the 6th attempt (even with the
+     correct password) should show a rate-limit message. Wait 15 minutes,
+     or redeploy (which clears the in-memory counter), to try again.
+   - Submit the correct `ADMIN_PASSWORD`: you should land on `/admin` and
+     stay logged in across page loads (check that an `admin_session`
+     cookie is set) for up to 30 days.
+   - Click "Log out": you should be redirected to `/admin/login`, and
+     visiting `/admin` again should redirect you straight back there.
 
 ## Applying database migrations
 
@@ -110,9 +83,10 @@ Run it:
 
 `scripts/migrate.ts` validates the full app environment via `loadEnv()`,
 and it reads only the real process environment — it does not load `.env`
-files itself. So the shell you run it in needs `WAHA_URL`, `WAHA_SESSION`
-and `SESSION_SECRET` set as well as `DATABASE_URL`. The easiest way is to
-source a populated env file and override the database URL:
+files itself. So the shell you run it in needs `WAHA_URL`, `WAHA_SESSION`,
+`SESSION_SECRET`, and `ADMIN_PASSWORD` set as well as `DATABASE_URL`. The
+easiest way is to source a populated env file and override the database
+URL:
 
 ```bash
 set -a && . ./.env.local && set +a
