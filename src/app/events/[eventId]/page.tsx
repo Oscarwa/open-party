@@ -4,6 +4,7 @@ import { loadEnv } from '@/lib/env'
 import { ATTENDEE_SESSION_COOKIE_NAME, verifyAttendeeSessionToken } from '@/lib/attendeeSession'
 import { getInviteeForUserAndEvent } from '@/lib/rsvp'
 import { getEvent, getFoodOptions, getActivityOptions, getBringItems } from '@/lib/queries/events'
+import { getClaimedBringItemIds } from '@/lib/queries/rsvp'
 import { declineAction, submitRsvpAction } from '@/lib/actions/rsvp'
 
 export default async function EventRsvpPage({
@@ -34,7 +35,7 @@ export default async function EventRsvpPage({
     getBringItems(eventId),
   ])
 
-  if (event.status === 'finalized') {
+  if (event.status !== 'published') {
     return (
       <main>
         <h1>{event.title}</h1>
@@ -55,6 +56,8 @@ export default async function EventRsvpPage({
       </main>
     )
   }
+
+  const claimedBringItemIds = await getClaimedBringItemIds(eventId, invitee.id)
 
   return (
     <main>
@@ -105,11 +108,15 @@ export default async function EventRsvpPage({
           <h3>What will you bring?</h3>
           <select name="bringItemId" defaultValue={invitee.bringItemId ?? ''}>
             <option value="">Nothing</option>
-            {bringItems.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
+            {bringItems.map((item) => {
+              const claimedByOther = claimedBringItemIds.has(item.id) && item.id !== invitee.bringItemId
+              return (
+                <option key={item.id} value={item.id} disabled={claimedByOther}>
+                  {item.name}
+                  {claimedByOther ? ' (already claimed)' : ''}
+                </option>
+              )
+            })}
           </select>
 
           <button type="submit">Confirm RSVP</button>

@@ -177,4 +177,29 @@ describe('submitRsvp', () => {
     await db.update(events).set({ status: 'finalized' }).where(eq(events.id, event.id))
     await expect(submitRsvp(invitee.id, event.id, {})).rejects.toThrow(RsvpActionError)
   })
+
+  it('rejects a food choice id that belongs to a different event', async () => {
+    const { event, invitee } = await createPublishedEventWithInvitee()
+    const { event: otherEvent } = await createPublishedEventWithInvitee()
+    const [otherFood] = await db
+      .insert(foodOptions)
+      .values({ eventId: otherEvent.id, name: 'Other Event Tacos' })
+      .returning()
+
+    await expect(
+      submitRsvp(invitee.id, event.id, { foodChoice1: otherFood.id }),
+    ).rejects.toThrow(RsvpActionError)
+  })
+
+  it('rejects a disabled food choice', async () => {
+    const { event, invitee } = await createPublishedEventWithInvitee()
+    const [disabledFood] = await db
+      .insert(foodOptions)
+      .values({ eventId: event.id, name: 'Disabled Dish', disabled: true })
+      .returning()
+
+    await expect(
+      submitRsvp(invitee.id, event.id, { foodChoice1: disabledFood.id }),
+    ).rejects.toThrow(RsvpActionError)
+  })
 })

@@ -1,6 +1,7 @@
 import { and, eq, ne } from 'drizzle-orm'
 import { db } from '@/db/client'
 import { eventInvitees, events } from '@/db/schema'
+import { getFoodOptions, getActivityOptions, getBringItems } from '@/lib/queries/events'
 
 export class RsvpActionError extends Error {}
 
@@ -49,7 +50,7 @@ export async function submitDecline(inviteeId: string, eventId: string, declineR
       activityChoice3: null,
       bringItemId: null,
     })
-    .where(eq(eventInvitees.id, inviteeId))
+    .where(and(eq(eventInvitees.id, inviteeId), eq(eventInvitees.eventId, eventId)))
     .returning()
   return updated
 }
@@ -82,11 +83,45 @@ export async function submitRsvp(
     throw new RsvpActionError('Activity choices must be distinct')
   }
 
+  // Every id in the submission must actually belong to this event (and, for
+  // food, not be disabled) — otherwise a crafted submission (or an attendee
+  // invited to multiple events) could store another event's option id.
+  // Mirrors the ownership checks finalizeEvent already applies before
+  // finalizing.
+  const [eventFoodOptions, eventActivityOptions, eventBringItems] = await Promise.all([
+    getFoodOptions(eventId),
+    getActivityOptions(eventId),
+    getBringItems(eventId),
+  ])
+
+  for (const choice of [input.foodChoice1, input.foodChoice2, input.foodChoice3]) {
+    if (!choice) continue
+    const option = eventFoodOptions.find((option) => option.id === choice)
+    if (!option || option.disabled) {
+      throw new RsvpActionError('Invalid food choice')
+    }
+  }
+  for (const choice of [input.activityChoice1, input.activityChoice2, input.activityChoice3]) {
+    if (!choice) continue
+    if (!eventActivityOptions.some((option) => option.id === choice)) {
+      throw new RsvpActionError('Invalid activity choice')
+    }
+  }
+  if (input.bringItemId && !eventBringItems.some((item) => item.id === input.bringItemId)) {
+    throw new RsvpActionError('Invalid bring item')
+  }
+
   if (input.bringItemId) {
     const [claimedByOther] = await db
       .select()
       .from(eventInvitees)
-      .where(and(eq(eventInvitees.bringItemId, input.bringItemId), ne(eventInvitees.id, inviteeId)))
+      .where(
+        and(
+          eq(eventInvitees.eventId, eventId),
+          eq(eventInvitees.bringItemId, input.bringItemId),
+          ne(eventInvitees.id, inviteeId),
+        ),
+      )
     if (claimedByOther) {
       throw new RsvpActionError('Someone else already claimed that item — pick another')
     }
@@ -106,7 +141,7 @@ export async function submitRsvp(
       bringItemId: input.bringItemId || null,
       rsvpAt: new Date(),
     })
-    .where(eq(eventInvitees.id, inviteeId))
+    .where(and(eq(eventInvitees.id, inviteeId), eq(eventInvitees.eventId, eventId)))
     .returning()
   return updated
 }
