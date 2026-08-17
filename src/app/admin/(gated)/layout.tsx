@@ -22,7 +22,7 @@ export default function GatedAdminLayout({ children }: { children: ReactNode }) 
         py={4}
         borderBottomWidth="1px"
       >
-        <Heading as="h1" size="md">
+        <Heading as="h2" size="md">
           Open Party — Admin
         </Heading>
         <form action={logoutAction}>
