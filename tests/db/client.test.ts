@@ -4,6 +4,7 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import { eq } from 'drizzle-orm'
 import postgres from 'postgres'
 import * as schema from '../../src/db/schema'
+import { db } from '../../src/db/client'
 
 const TEST_DATABASE_URL =
   process.env.TEST_DATABASE_URL ??
@@ -30,5 +31,13 @@ describe('db client', () => {
 
     expect(found.name).toBe('Oscar')
     expect(found.whatsappNumber).toBe('+15551234567')
+  })
+
+  // Exercises the real src/db/client.ts module: importing it runs loadEnv()
+  // and constructs the drizzle instance. The postgres driver connects lazily
+  // on first query, so this does not require DATABASE_URL to point at the
+  // test database — only that the environment validates.
+  it('exports a constructed drizzle client from src/db/client', () => {
+    expect(db).toBeDefined()
   })
 })
