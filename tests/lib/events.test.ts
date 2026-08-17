@@ -35,6 +35,14 @@ beforeAll(async () => {
   await db.execute(sql`truncate table users, events restart identity cascade`)
 })
 
+// A YYYY-MM-DD date `days` from today, for tests whose assertions depend on
+// the event still being in the future (token expiry is event date + 5 days).
+function futureDate(days: number) {
+  const d = new Date()
+  d.setDate(d.getDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+
 describe('createEvent', () => {
   it('creates a draft event with the given fields', async () => {
     const event = await createEvent({
@@ -227,10 +235,26 @@ describe('publishEvent', () => {
     await expect(publishEvent(event.id)).rejects.toThrow(/invite at least one/i)
   })
 
+  it('rejects publishing when the only food option is disabled', async () => {
+    const event = await createEvent({
+      title: 'Disabled Food Only Event',
+      date: '2026-09-25',
+      startTime: '18:00',
+    })
+    const option = await addFoodOption(event.id, 'Tacos')
+    await toggleFoodOptionDisabled(option.id)
+    await addActivityOption(event.id, 'Board Games')
+    await addInvitee(event.id, 'Oscar', '+15559990010')
+    await expect(publishEvent(event.id)).rejects.toThrow(/food option/)
+  })
+
   it('publishes a fully-configured event and generates usable tokens', async () => {
+    // Computed, not hardcoded: this test asserts the generated token expiry
+    // (event date/time + 5 days' grace) is still in the future, so a fixed
+    // date would silently turn this into a time bomb once it passed.
     const event = await createEvent({
       title: 'Publishable Event',
-      date: '2026-09-21',
+      date: futureDate(30),
       startTime: '18:00',
     })
     await addFoodOption(event.id, 'Tacos')
@@ -291,5 +315,38 @@ describe('finalizeEvent', () => {
     expect(finalized.status).toBe('finalized')
     expect(finalized.finalFoodOptionId).toBe(food.id)
     expect(finalized.finalActivityOptionId).toBe(activity.id)
+  })
+
+  it('rejects final options that belong to a different event', async () => {
+    const event = await createEvent({
+      title: 'Ownership Guard Event',
+      date: '2026-09-26',
+      startTime: '18:00',
+    })
+    const food = await addFoodOption(event.id, 'Tacos')
+    const activity = await addActivityOption(event.id, 'Board Games')
+    await addInvitee(event.id, 'Oscar', '+15559990011')
+    await publishEvent(event.id)
+
+    const other = await createEvent({
+      title: 'Ownership Guard Other Event',
+      date: '2026-09-27',
+      startTime: '18:00',
+    })
+    const otherFood = await addFoodOption(other.id, 'Sushi')
+    const otherActivity = await addActivityOption(other.id, 'Karaoke')
+
+    await expect(
+      finalizeEvent(event.id, otherFood.id, activity.id),
+    ).rejects.toThrow(EventActionError)
+    await expect(
+      finalizeEvent(event.id, food.id, otherActivity.id),
+    ).rejects.toThrow(EventActionError)
+
+    // …and nothing was written: the event is still publishable-state clean.
+    const [stored] = await db.select().from(events).where(eq(events.id, event.id))
+    expect(stored.status).toBe('published')
+    expect(stored.finalFoodOptionId).toBeNull()
+    expect(stored.finalActivityOptionId).toBeNull()
   })
 })

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { count, eq } from 'drizzle-orm'
+import { and, count, eq } from 'drizzle-orm'
 import { db } from '@/db/client'
 import { events } from '@/db/schema'
 import { activityOptions, bringItems, foodOptions, eventInvitees, users } from '@/db/schema'
@@ -175,9 +175,12 @@ export async function publishEvent(eventId: string) {
 
   const [[{ foodCount }], [{ activityCount }], [{ inviteeCount }]] = await Promise.all([
     db
+      // Only non-disabled options count: an event whose sole food option is
+      // disabled has nothing selectable, so it fails the "at least one"
+      // precondition just like an event with no options at all.
       .select({ foodCount: count() })
       .from(foodOptions)
-      .where(eq(foodOptions.eventId, eventId)),
+      .where(and(eq(foodOptions.eventId, eventId), eq(foodOptions.disabled, false))),
     db
       .select({ activityCount: count() })
       .from(activityOptions)
@@ -234,6 +237,41 @@ export async function finalizeEvent(
   if (event.status !== 'published') {
     throw new EventActionError('Only a published event can be finalized')
   }
+
+  // There is no FK on events.final_food_option_id / final_activity_option_id
+  // (Foundation deliberately avoided the circular reference), so ownership
+  // has to be enforced here: a crafted POST could otherwise finalize this
+  // event onto another event's option, or a nonexistent one.
+  const [[food], [activity]] = await Promise.all([
+    db
+      .select({ id: foodOptions.id })
+      .from(foodOptions)
+      .where(
+        and(
+          eq(foodOptions.id, finalFoodOptionId),
+          eq(foodOptions.eventId, eventId),
+        ),
+      ),
+    db
+      .select({ id: activityOptions.id })
+      .from(activityOptions)
+      .where(
+        and(
+          eq(activityOptions.id, finalActivityOptionId),
+          eq(activityOptions.eventId, eventId),
+        ),
+      ),
+  ])
+
+  if (!food) {
+    throw new EventActionError('Selected food option does not belong to this event')
+  }
+  if (!activity) {
+    throw new EventActionError(
+      'Selected activity option does not belong to this event',
+    )
+  }
+
   const [updated] = await db
     .update(events)
     .set({
