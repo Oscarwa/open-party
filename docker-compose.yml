@@ -47,7 +47,7 @@ services:
       POSTGRES_PASSWORD: open_party
       POSTGRES_DB: open_party_test
     ports:
-      - "127.0.0.1:5433:5432"
+      - "127.0.0.1:55432:5432"
     tmpfs:
       - /var/lib/postgresql/data
 

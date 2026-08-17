@@ -7,7 +7,7 @@ import * as schema from '../../src/db/schema'
 
 const TEST_DATABASE_URL =
   process.env.TEST_DATABASE_URL ??
-  'postgres://open_party:open_party@localhost:5433/open_party_test'
+  'postgres://open_party:open_party@localhost:55432/open_party_test'
 
 const queryClient = postgres(TEST_DATABASE_URL)
 const testDb = drizzle(queryClient, { schema })
