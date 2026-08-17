@@ -4,13 +4,23 @@ services:
     restart: unless-stopped
     env_file: .env
     environment:
-      # Overrides for running the full stack via compose: resolve
-      # Postgres/WAHA by their Docker network service name instead of
-      # localhost. In real production, .env's DATABASE_URL should point
-      # at your existing homelab Postgres instance instead — remove
-      # this override in that case.
-      DATABASE_URL: postgres://open_party:open_party@postgres:5432/open_party_dev
-      WAHA_URL: http://waha:3000
+      # Defaults for running the full stack via compose (the dev `postgres`
+      # and `waha` containers, resolved by Docker network service name).
+      #
+      # These are DEFAULTS, not overrides: Compose interpolates ${VAR} from
+      # the `.env` file in this directory (and from the shell environment),
+      # so a production `.env` with a real
+      # `DATABASE_URL=postgres://...@your-homelab-postgres/...` wins and is
+      # passed through unchanged. Only when the variable is unset/empty do
+      # the dev-container values below apply.
+      #
+      # Consequence for local dev: if your `.env` sets DATABASE_URL to the
+      # host-facing form (localhost:55433, as in .env.example), the `app`
+      # container will use that literal value and fail to reach Postgres.
+      # For compose-based dev either leave DATABASE_URL/WAHA_URL out of
+      # `.env` entirely, or set them to the service-name form shown here.
+      DATABASE_URL: ${DATABASE_URL:-postgres://open_party:open_party@postgres:5432/open_party_dev}
+      WAHA_URL: ${WAHA_URL:-http://waha:3000}
     ports:
       - "127.0.0.1:3000:3000"
     depends_on:
@@ -34,7 +44,10 @@ services:
       POSTGRES_PASSWORD: open_party
       POSTGRES_DB: open_party_dev
     ports:
-      - "127.0.0.1:5432:5432"
+      # Deliberately not 5432: this project's premise is reusing an existing
+      # homelab Postgres, which commonly already owns the conventional port
+      # (the same collision already hit postgres-test on 5433).
+      - "127.0.0.1:55433:5432"
     volumes:
       - postgres-dev-data:/var/lib/postgresql/data
 

@@ -20,6 +20,11 @@ RUN addgroup --system --gid 1001 nodejs \
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# SQL migrations ship with the image so the deployed schema version is always
+# inspectable alongside the code it belongs to. Applying them is a documented
+# manual step run from the host — see docs/deploy/tailscale.md,
+# "Applying database migrations".
+COPY --from=builder --chown=nextjs:nodejs /app/src/db/migrations ./src/db/migrations
 USER nextjs
 EXPOSE 3000
 ENV PORT=3000
