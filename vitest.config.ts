@@ -1,9 +1,17 @@
-import { defineConfig } from 'vitest/config'
+import { defineConfig, configDefaults } from 'vitest/config'
 import path from 'node:path'
 
 export default defineConfig({
   test: {
     environment: 'node',
+    // Exclude nested git worktrees living inside this checkout (this repo
+    // is used with a harness that places worktrees under .claude/worktrees/
+    // or .worktrees/). Without this, running the suite from a checkout that
+    // has one of those directories present picks up every test file twice
+    // — once here, once from the nested copy — and two copies of
+    // tests/db/client.test.ts race each other's migrate() call against the
+    // same database.
+    exclude: [...configDefaults.exclude, '.claude/**', '.worktrees/**', 'worktrees/**'],
     // Vitest does not read .env files into process.env, so modules that
     // validate the environment at import time (src/db/client.ts via
     // loadEnv()) need these here. Deterministic, checked-in defaults keep
