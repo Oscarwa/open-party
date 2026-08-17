@@ -1,6 +1,13 @@
 import Link from 'next/link'
 import { listEvents } from '@/lib/queries/events'
 
+// Without this, Next.js statically prerenders this page at build time
+// (nothing here uses a dynamic API like cookies()/headers()/searchParams
+// that would otherwise force per-request rendering) — the events list
+// would freeze at whatever was in the database during `docker build` and
+// never update in the deployed app until the next image rebuild.
+export const dynamic = 'force-dynamic'
+
 export default async function AdminEventsPage() {
   const events = await listEvents()
 
