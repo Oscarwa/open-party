@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { getEvent, getFoodOptions, getActivityOptions, getBringItems } from '@/lib/queries/events'
+import { getEvent, getFoodOptions, getActivityOptions, getBringItems, getInvitees } from '@/lib/queries/events'
 import {
   addFoodOptionAction,
   toggleFoodOptionDisabledAction,
@@ -8,6 +8,8 @@ import {
   deleteActivityOptionAction,
   addBringItemAction,
   deleteBringItemAction,
+  addInviteeAction,
+  removeInviteeAction,
 } from '@/lib/actions/events'
 
 export default async function EventDetailPage({
@@ -23,10 +25,11 @@ export default async function EventDetailPage({
   }
 
   const isDraft = event.status === 'draft'
-  const [foodOptions, activityOptions, bringItems] = await Promise.all([
+  const [foodOptions, activityOptions, bringItems, invitees] = await Promise.all([
     getFoodOptions(id),
     getActivityOptions(id),
     getBringItems(id),
+    getInvitees(id),
   ])
 
   return (
@@ -116,7 +119,38 @@ export default async function EventDetailPage({
         ) : null}
       </section>
 
-      {/* Later tasks in this plan add invitee management, publish,
+      <section>
+        <h3>Invitees</h3>
+        <ul>
+          {invitees.map((invitee) => (
+            <li key={invitee.id}>
+              {invitee.userName} ({invitee.userWhatsappNumber}) — {invitee.rsvpStatus}
+              {isDraft ? (
+                <form action={removeInviteeAction} style={{ display: 'inline' }}>
+                  <input type="hidden" name="id" value={invitee.id} />
+                  <input type="hidden" name="eventId" value={event.id} />
+                  <button type="submit">Remove</button>
+                </form>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+        {isDraft ? (
+          <form action={addInviteeAction}>
+            <input type="hidden" name="eventId" value={event.id} />
+            <input type="text" name="name" placeholder="Name" required />
+            <input
+              type="text"
+              name="whatsappNumber"
+              placeholder="WhatsApp number, e.g. +15551234567"
+              required
+            />
+            <button type="submit">Add invitee</button>
+          </form>
+        ) : null}
+      </section>
+
+      {/* Later tasks in this plan add publish,
           dashboard, voting results, and finalize sections here. */}
     </main>
   )

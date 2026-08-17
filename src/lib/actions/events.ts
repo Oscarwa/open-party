@@ -12,6 +12,8 @@ import {
   deleteActivityOption,
   addBringItem,
   deleteBringItem,
+  addInvitee,
+  removeInvitee,
 } from '@/lib/events'
 
 const createEventSchema = z.object({
@@ -93,5 +95,28 @@ export async function deleteBringItemAction(formData: FormData) {
   const eventId = formData.get('eventId')
   const { id } = idSchema.parse({ id: formData.get('id') })
   await deleteBringItem(id)
+  revalidatePath(`/admin/events/${eventId}`)
+}
+
+const addInviteeSchema = z.object({
+  eventId: z.string().uuid(),
+  name: z.string().trim().min(1, 'Name is required'),
+  whatsappNumber: z.string().trim().min(1, 'WhatsApp number is required'),
+})
+
+export async function addInviteeAction(formData: FormData) {
+  const parsed = addInviteeSchema.parse({
+    eventId: formData.get('eventId'),
+    name: formData.get('name'),
+    whatsappNumber: formData.get('whatsappNumber'),
+  })
+  await addInvitee(parsed.eventId, parsed.name, parsed.whatsappNumber)
+  revalidatePath(`/admin/events/${parsed.eventId}`)
+}
+
+export async function removeInviteeAction(formData: FormData) {
+  const eventId = formData.get('eventId')
+  const { id } = idSchema.parse({ id: formData.get('id') })
+  await removeInvitee(id)
   revalidatePath(`/admin/events/${eventId}`)
 }

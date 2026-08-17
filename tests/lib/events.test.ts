@@ -11,6 +11,8 @@ import {
   deleteActivityOption,
   addBringItem,
   deleteBringItem,
+  addInvitee,
+  removeInvitee,
   EventActionError,
 } from '../../src/lib/events'
 
@@ -132,5 +134,59 @@ describe('bring items', () => {
     const item = await addBringItem(event.id, 'Drinks')
     expect(item.name).toBe('Drinks')
     await deleteBringItem(item.id)
+  })
+})
+
+describe('invitees', () => {
+  it('creates a new user on first invite and adds an invitee', async () => {
+    const event = await createEvent({
+      title: 'Invitee Event',
+      date: '2026-09-13',
+      startTime: '18:00',
+    })
+    const invitee = await addInvitee(event.id, 'Bonga', '+15559990001')
+    expect(invitee.rsvpStatus).toBe('pending')
+    expect(invitee.inviteToken).toBeTruthy()
+    expect(invitee.tokenExpiresAt.getTime()).toBeLessThan(Date.now())
+  })
+
+  it('reuses the existing user on a second invite by the same WhatsApp number', async () => {
+    const eventA = await createEvent({
+      title: 'Reuse Event A',
+      date: '2026-09-14',
+      startTime: '18:00',
+    })
+    const eventB = await createEvent({
+      title: 'Reuse Event B',
+      date: '2026-09-15',
+      startTime: '18:00',
+    })
+    const first = await addInvitee(eventA.id, 'John', '+15559990002')
+    const second = await addInvitee(eventB.id, 'John (renamed)', '+15559990002')
+    expect(second.userId).toBe(first.userId)
+  })
+
+  it('rejects inviting the same person to the same event twice', async () => {
+    const event = await createEvent({
+      title: 'Duplicate Invitee Event',
+      date: '2026-09-16',
+      startTime: '18:00',
+    })
+    await addInvitee(event.id, 'Ana', '+15559990003')
+    await expect(addInvitee(event.id, 'Ana', '+15559990003')).rejects.toThrow(
+      EventActionError,
+    )
+  })
+
+  it('removes an invitee from a draft event', async () => {
+    const event = await createEvent({
+      title: 'Remove Invitee Event',
+      date: '2026-09-17',
+      startTime: '18:00',
+    })
+    const invitee = await addInvitee(event.id, 'Carlos', '+15559990004')
+    await removeInvitee(invitee.id)
+    const remaining = await addInvitee(event.id, 'Carlos', '+15559990004')
+    expect(remaining.id).not.toBe(invitee.id)
   })
 })

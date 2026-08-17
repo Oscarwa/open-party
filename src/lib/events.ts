@@ -1,7 +1,8 @@
+import { randomUUID } from 'node:crypto'
 import { eq } from 'drizzle-orm'
 import { db } from '@/db/client'
 import { events } from '@/db/schema'
-import { activityOptions, bringItems, foodOptions } from '@/db/schema'
+import { activityOptions, bringItems, foodOptions, eventInvitees, users } from '@/db/schema'
 
 export class EventActionError extends Error {}
 
@@ -106,4 +107,51 @@ export async function deleteBringItem(bringItemId: string) {
   const event = await getEventOrThrow(item.eventId)
   assertDraft(event)
   await db.delete(bringItems).where(eq(bringItems.id, bringItemId))
+}
+
+export async function addInvitee(
+  eventId: string,
+  name: string,
+  whatsappNumber: string,
+) {
+  const event = await getEventOrThrow(eventId)
+  assertDraft(event)
+
+  let [user] = await db
+    .select()
+    .from(users)
+    .where(eq(users.whatsappNumber, whatsappNumber))
+
+  if (!user) {
+    ;[user] = await db.insert(users).values({ name, whatsappNumber }).returning()
+  }
+
+  try {
+    const [invitee] = await db
+      .insert(eventInvitees)
+      .values({
+        eventId,
+        userId: user.id,
+        // Placeholder — deliberately already-expired, so this token can
+        // never be used before publishEvent (Task 5) overwrites it with a
+        // real future expiry.
+        inviteToken: randomUUID(),
+        tokenExpiresAt: new Date(0),
+      })
+      .returning()
+    return invitee
+  } catch {
+    throw new EventActionError('This person is already invited to this event')
+  }
+}
+
+export async function removeInvitee(eventInviteeId: string) {
+  const [invitee] = await db
+    .select()
+    .from(eventInvitees)
+    .where(eq(eventInvitees.id, eventInviteeId))
+  if (!invitee) throw new EventActionError('Invitee not found')
+  const event = await getEventOrThrow(invitee.eventId)
+  assertDraft(event)
+  await db.delete(eventInvitees).where(eq(eventInvitees.id, eventInviteeId))
 }
