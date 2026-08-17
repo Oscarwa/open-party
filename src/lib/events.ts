@@ -224,3 +224,24 @@ export async function publishEvent(eventId: string) {
     .returning()
   return updated
 }
+
+export async function finalizeEvent(
+  eventId: string,
+  finalFoodOptionId: string,
+  finalActivityOptionId: string,
+) {
+  const event = await getEventOrThrow(eventId)
+  if (event.status !== 'published') {
+    throw new EventActionError('Only a published event can be finalized')
+  }
+  const [updated] = await db
+    .update(events)
+    .set({
+      status: 'finalized',
+      finalFoodOptionId,
+      finalActivityOptionId,
+    })
+    .where(eq(events.id, eventId))
+    .returning()
+  return updated
+}

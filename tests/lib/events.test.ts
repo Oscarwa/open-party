@@ -14,6 +14,7 @@ import {
   addInvitee,
   removeInvitee,
   publishEvent,
+  finalizeEvent,
   EventActionError,
 } from '../../src/lib/events'
 
@@ -258,5 +259,37 @@ describe('publishEvent', () => {
     await addInvitee(event.id, 'Oscar', '+15559990008')
     await publishEvent(event.id)
     await expect(publishEvent(event.id)).rejects.toThrow(EventActionError)
+  })
+})
+
+describe('finalizeEvent', () => {
+  it('rejects finalizing a draft event', async () => {
+    const event = await createEvent({
+      title: 'Finalize Draft Guard Event',
+      date: '2026-09-23',
+      startTime: '18:00',
+    })
+    const food = await addFoodOption(event.id, 'Tacos')
+    const activity = await addActivityOption(event.id, 'Board Games')
+    await expect(
+      finalizeEvent(event.id, food.id, activity.id),
+    ).rejects.toThrow(EventActionError)
+  })
+
+  it('sets the final options and status together', async () => {
+    const event = await createEvent({
+      title: 'Finalize Event',
+      date: '2026-09-24',
+      startTime: '18:00',
+    })
+    const food = await addFoodOption(event.id, 'Tacos')
+    const activity = await addActivityOption(event.id, 'Board Games')
+    await addInvitee(event.id, 'Oscar', '+15559990009')
+    await publishEvent(event.id)
+
+    const finalized = await finalizeEvent(event.id, food.id, activity.id)
+    expect(finalized.status).toBe('finalized')
+    expect(finalized.finalFoodOptionId).toBe(food.id)
+    expect(finalized.finalActivityOptionId).toBe(activity.id)
   })
 })

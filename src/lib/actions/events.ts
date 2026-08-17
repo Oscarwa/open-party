@@ -15,6 +15,7 @@ import {
   addInvitee,
   removeInvitee,
   publishEvent,
+  finalizeEvent,
 } from '@/lib/events'
 
 const createEventSchema = z.object({
@@ -127,4 +128,24 @@ export async function publishEventAction(formData: FormData) {
   if (typeof eventId !== 'string') throw new Error('Missing eventId')
   await publishEvent(eventId)
   revalidatePath(`/admin/events/${eventId}`)
+}
+
+const finalizeSchema = z.object({
+  eventId: z.string().uuid(),
+  finalFoodOptionId: z.string().uuid(),
+  finalActivityOptionId: z.string().uuid(),
+})
+
+export async function finalizeEventAction(formData: FormData) {
+  const parsed = finalizeSchema.parse({
+    eventId: formData.get('eventId'),
+    finalFoodOptionId: formData.get('finalFoodOptionId'),
+    finalActivityOptionId: formData.get('finalActivityOptionId'),
+  })
+  await finalizeEvent(
+    parsed.eventId,
+    parsed.finalFoodOptionId,
+    parsed.finalActivityOptionId,
+  )
+  revalidatePath(`/admin/events/${parsed.eventId}`)
 }

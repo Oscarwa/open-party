@@ -11,6 +11,7 @@ import {
   addInviteeAction,
   removeInviteeAction,
   publishEventAction,
+  finalizeEventAction,
 } from '@/lib/actions/events'
 
 export default async function EventDetailPage({
@@ -287,6 +288,50 @@ export default async function EventDetailPage({
               ))}
             </tbody>
           </table>
+        </section>
+      ) : null}
+
+      {event.status === 'published' ? (
+        <section>
+          <h3>Finalize</h3>
+          <form action={finalizeEventAction}>
+            <input type="hidden" name="eventId" value={event.id} />
+            <div>
+              <label htmlFor="finalFoodOptionId">Final food</label>
+              <select id="finalFoodOptionId" name="finalFoodOptionId" required>
+                {foodOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="finalActivityOptionId">Final activity</label>
+              <select id="finalActivityOptionId" name="finalActivityOptionId" required>
+                {activityOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button type="submit">Finalize Event</button>
+          </form>
+        </section>
+      ) : null}
+
+      {event.status === 'finalized' ? (
+        <section>
+          <h3>Finalized</h3>
+          <p>
+            Final food:{' '}
+            {foodOptions.find((o) => o.id === event.finalFoodOptionId)?.name}
+          </p>
+          <p>
+            Final activity:{' '}
+            {activityOptions.find((o) => o.id === event.finalActivityOptionId)?.name}
+          </p>
         </section>
       ) : null}
     </main>
