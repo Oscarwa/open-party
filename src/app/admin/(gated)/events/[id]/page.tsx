@@ -1,6 +1,15 @@
 import { notFound } from 'next/navigation'
 import { z } from 'zod'
-import { getEvent, getFoodOptions, getActivityOptions, getBringItems, getInvitees, getRsvpCounts, getVotingResults } from '@/lib/queries/events'
+import { Box, Heading, HStack, Input, Stack, Table, Text } from '@chakra-ui/react'
+import {
+  getEvent,
+  getFoodOptions,
+  getActivityOptions,
+  getBringItems,
+  getInvitees,
+  getRsvpCounts,
+  getVotingResults,
+} from '@/lib/queries/events'
 import {
   addFoodOptionAction,
   toggleFoodOptionDisabledAction,
@@ -14,6 +23,9 @@ import {
   publishEventAction,
   finalizeEventAction,
 } from '@/lib/actions/events'
+import { PageShell } from '@/components/PageShell'
+import { FormSelect } from '@/components/FormSelect'
+import { Button } from '@/components/Button'
 
 export default async function EventDetailPage({
   params,
@@ -54,303 +66,359 @@ export default async function EventDetailPage({
     : await Promise.all([getRsvpCounts(id), getVotingResults(id)])
 
   return (
-    <main>
-      <h2>{event.title}</h2>
-      <p>
+    <PageShell title={event.title}>
+      <Text color="fg.muted">
         {event.date} {event.startTime} · {event.status}
-      </p>
-      {event.description ? <p>{event.description}</p> : null}
+      </Text>
+      {event.description ? <Text>{event.description}</Text> : null}
 
-      <section>
-        <h3>Food</h3>
-        <ul>
+      <Box as="section" borderWidth="1px" borderRadius="lg" p={{ base: 4, md: 6 }}>
+        <Heading as="h3" size="md" mb={3}>
+          Food
+        </Heading>
+        <Stack gap={2} mb={4}>
           {foodOptions.map((option) => (
-            <li key={option.id}>
-              {option.name} {option.disabled ? '(disabled)' : ''}
-              <form action={toggleFoodOptionDisabledAction} style={{ display: 'inline' }}>
-                <input type="hidden" name="id" value={option.id} />
-                <button type="submit">{option.disabled ? 'Enable' : 'Disable'}</button>
-              </form>
-              {isDraft ? (
-                <form action={deleteFoodOptionAction} style={{ display: 'inline' }}>
+            <HStack key={option.id} justify="space-between" wrap="wrap" gap={2}>
+              <Text>
+                {option.name} {option.disabled ? '(disabled)' : ''}
+              </Text>
+              <HStack gap={2}>
+                <form action={toggleFoodOptionDisabledAction}>
                   <input type="hidden" name="id" value={option.id} />
-                  <input type="hidden" name="eventId" value={event.id} />
-                  <button type="submit">Delete</button>
+                  <Button type="submit" size="sm" variant="outline">
+                    {option.disabled ? 'Enable' : 'Disable'}
+                  </Button>
                 </form>
-              ) : null}
-            </li>
+                {isDraft ? (
+                  <form action={deleteFoodOptionAction}>
+                    <input type="hidden" name="id" value={option.id} />
+                    <input type="hidden" name="eventId" value={event.id} />
+                    <Button type="submit" size="sm" variant="outline" colorPalette="red">
+                      Delete
+                    </Button>
+                  </form>
+                ) : null}
+              </HStack>
+            </HStack>
           ))}
-        </ul>
+        </Stack>
         {isDraft ? (
           <form action={addFoodOptionAction}>
             <input type="hidden" name="eventId" value={event.id} />
-            <input type="text" name="name" placeholder="e.g. Tacos" required />
-            <button type="submit">Add food option</button>
+            <HStack gap={2}>
+              <Input name="name" placeholder="e.g. Tacos" required />
+              <Button type="submit">Add</Button>
+            </HStack>
           </form>
         ) : null}
-      </section>
+      </Box>
 
-      <section>
-        <h3>Activities</h3>
-        <ul>
+      <Box as="section" borderWidth="1px" borderRadius="lg" p={{ base: 4, md: 6 }}>
+        <Heading as="h3" size="md" mb={3}>
+          Activities
+        </Heading>
+        <Stack gap={2} mb={4}>
           {activityOptions.map((option) => (
-            <li key={option.id}>
-              {option.name}
+            <HStack key={option.id} justify="space-between" wrap="wrap" gap={2}>
+              <Text>{option.name}</Text>
               {isDraft ? (
-                <form action={deleteActivityOptionAction} style={{ display: 'inline' }}>
+                <form action={deleteActivityOptionAction}>
                   <input type="hidden" name="id" value={option.id} />
                   <input type="hidden" name="eventId" value={event.id} />
-                  <button type="submit">Delete</button>
+                  <Button type="submit" size="sm" variant="outline" colorPalette="red">
+                    Delete
+                  </Button>
                 </form>
               ) : null}
-            </li>
+            </HStack>
           ))}
-        </ul>
+        </Stack>
         {isDraft ? (
           <form action={addActivityOptionAction}>
             <input type="hidden" name="eventId" value={event.id} />
-            <input type="text" name="name" placeholder="e.g. Board Games" required />
-            <button type="submit">Add activity option</button>
+            <HStack gap={2}>
+              <Input name="name" placeholder="e.g. Board Games" required />
+              <Button type="submit">Add</Button>
+            </HStack>
           </form>
         ) : null}
-      </section>
+      </Box>
 
-      <section>
-        <h3>What to bring</h3>
-        <ul>
+      <Box as="section" borderWidth="1px" borderRadius="lg" p={{ base: 4, md: 6 }}>
+        <Heading as="h3" size="md" mb={3}>
+          What to bring
+        </Heading>
+        <Stack gap={2} mb={4}>
           {bringItems.map((item) => (
-            <li key={item.id}>
-              {item.name}
+            <HStack key={item.id} justify="space-between" wrap="wrap" gap={2}>
+              <Text>{item.name}</Text>
               {isDraft ? (
-                <form action={deleteBringItemAction} style={{ display: 'inline' }}>
+                <form action={deleteBringItemAction}>
                   <input type="hidden" name="id" value={item.id} />
                   <input type="hidden" name="eventId" value={event.id} />
-                  <button type="submit">Delete</button>
+                  <Button type="submit" size="sm" variant="outline" colorPalette="red">
+                    Delete
+                  </Button>
                 </form>
               ) : null}
-            </li>
+            </HStack>
           ))}
-        </ul>
+        </Stack>
         {isDraft ? (
           <form action={addBringItemAction}>
             <input type="hidden" name="eventId" value={event.id} />
-            <input type="text" name="name" placeholder="e.g. Drinks" required />
-            <button type="submit">Add item</button>
+            <HStack gap={2}>
+              <Input name="name" placeholder="e.g. Drinks" required />
+              <Button type="submit">Add</Button>
+            </HStack>
           </form>
         ) : null}
-      </section>
+      </Box>
 
-      <section>
-        <h3>Invitees</h3>
-        <ul>
+      <Box as="section" borderWidth="1px" borderRadius="lg" p={{ base: 4, md: 6 }}>
+        <Heading as="h3" size="md" mb={3}>
+          Invitees
+        </Heading>
+        <Stack gap={2} mb={4}>
           {invitees.map((invitee) => (
-            <li key={invitee.id}>
-              {invitee.userName} ({invitee.userWhatsappNumber}) — {invitee.rsvpStatus}
+            <HStack key={invitee.id} justify="space-between" wrap="wrap" gap={2}>
+              <Text>
+                {invitee.userName} ({invitee.userWhatsappNumber}) — {invitee.rsvpStatus}
+              </Text>
               {isDraft ? (
-                <form action={removeInviteeAction} style={{ display: 'inline' }}>
+                <form action={removeInviteeAction}>
                   <input type="hidden" name="id" value={invitee.id} />
                   <input type="hidden" name="eventId" value={event.id} />
-                  <button type="submit">Remove</button>
+                  <Button type="submit" size="sm" variant="outline" colorPalette="red">
+                    Remove
+                  </Button>
                 </form>
               ) : null}
-            </li>
+            </HStack>
           ))}
-        </ul>
+        </Stack>
         {isDraft ? (
           <form action={addInviteeAction}>
             <input type="hidden" name="eventId" value={event.id} />
-            <input type="text" name="name" placeholder="Name" required />
-            <input
-              type="text"
-              name="whatsappNumber"
-              placeholder="WhatsApp number, e.g. +15551234567"
-              required
-            />
-            <button type="submit">Add invitee</button>
+            <Stack gap={2}>
+              <Input name="name" placeholder="Name" required />
+              <Input
+                name="whatsappNumber"
+                placeholder="WhatsApp number, e.g. +15551234567"
+                required
+              />
+              <Button type="submit" alignSelf="flex-start">
+                Add invitee
+              </Button>
+            </Stack>
           </form>
         ) : null}
-      </section>
+      </Box>
 
       {isDraft ? (
-        <section>
-          <h3>Publish</h3>
+        <Box as="section" borderWidth="1px" borderRadius="lg" p={{ base: 4, md: 6 }}>
+          <Heading as="h3" size="md" mb={3}>
+            Publish
+          </Heading>
           <form action={publishEventAction}>
             <input type="hidden" name="eventId" value={event.id} />
-            <button type="submit">Publish &amp; Invite</button>
+            <Button type="submit">Publish &amp; Invite</Button>
           </form>
-        </section>
+        </Box>
       ) : null}
 
       {!isDraft ? (
-        <section>
-          <h3>Invite links</h3>
-          <p>
-            WhatsApp sending isn&apos;t wired up yet — share these links manually
-            to test the RSVP flow.
-          </p>
-          <ul>
+        <Box as="section" borderWidth="1px" borderRadius="lg" p={{ base: 4, md: 6 }}>
+          <Heading as="h3" size="md" mb={3}>
+            Invite links
+          </Heading>
+          <Text color="fg.muted" mb={3}>
+            WhatsApp sending isn&apos;t wired up yet — share these links manually to test the RSVP
+            flow.
+          </Text>
+          <Stack gap={1}>
             {invitees.map((invitee) => (
-              <li key={invitee.id}>
-                {invitee.userName}: <code>/e/{invitee.inviteToken}</code>
-              </li>
+              <Text key={invitee.id} fontSize="sm">
+                {invitee.userName}: <Text as="code">/e/{invitee.inviteToken}</Text>
+              </Text>
             ))}
-          </ul>
-        </section>
+          </Stack>
+        </Box>
       ) : null}
 
       {rsvpCounts ? (
-        <section>
-          <h3>RSVP status</h3>
-          <table>
-            <tbody>
-              <tr>
-                <td>Invited</td>
-                <td>{rsvpCounts.invited}</td>
-              </tr>
-              <tr>
-                <td>Attending</td>
-                <td>{rsvpCounts.attending}</td>
-              </tr>
-              <tr>
-                <td>Declined</td>
-                <td>{rsvpCounts.declined}</td>
-              </tr>
-              <tr>
-                <td>No response</td>
-                <td>{rsvpCounts.pending}</td>
-              </tr>
-            </tbody>
-          </table>
-        </section>
+        <Box as="section" borderWidth="1px" borderRadius="lg" p={{ base: 4, md: 6 }}>
+          <Heading as="h3" size="md" mb={3}>
+            RSVP status
+          </Heading>
+          <Table.ScrollArea>
+            <Table.Root size="sm">
+              <Table.Body>
+                <Table.Row>
+                  <Table.Cell>Invited</Table.Cell>
+                  <Table.Cell>{rsvpCounts.invited}</Table.Cell>
+                </Table.Row>
+                <Table.Row>
+                  <Table.Cell>Attending</Table.Cell>
+                  <Table.Cell>{rsvpCounts.attending}</Table.Cell>
+                </Table.Row>
+                <Table.Row>
+                  <Table.Cell>Declined</Table.Cell>
+                  <Table.Cell>{rsvpCounts.declined}</Table.Cell>
+                </Table.Row>
+                <Table.Row>
+                  <Table.Cell>No response</Table.Cell>
+                  <Table.Cell>{rsvpCounts.pending}</Table.Cell>
+                </Table.Row>
+              </Table.Body>
+            </Table.Root>
+          </Table.ScrollArea>
+        </Box>
       ) : null}
 
       {rsvpCounts ? (
-        <section>
-          <h3>Attendees</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>Person</th>
-                <th>RSVP</th>
-                <th>Food</th>
-                <th>Activity</th>
-                <th>Bringing</th>
-              </tr>
-            </thead>
-            <tbody>
-              {invitees.map((invitee) => (
-                <tr key={invitee.id}>
-                  <td>{invitee.userName}</td>
-                  <td>{invitee.rsvpStatus}</td>
-                  <td>
-                    {foodOptions.find((o) => o.id === invitee.foodChoice1)?.name ?? '—'}
-                  </td>
-                  <td>
-                    {activityOptions.find((o) => o.id === invitee.activityChoice1)?.name ?? '—'}
-                  </td>
-                  <td>
-                    {bringItems.find((i) => i.id === invitee.bringItemId)?.name ?? '—'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
+        <Box as="section" borderWidth="1px" borderRadius="lg" p={{ base: 4, md: 6 }}>
+          <Heading as="h3" size="md" mb={3}>
+            Attendees
+          </Heading>
+          <Table.ScrollArea>
+            <Table.Root size="sm">
+              <Table.Header>
+                <Table.Row>
+                  <Table.ColumnHeader>Person</Table.ColumnHeader>
+                  <Table.ColumnHeader>RSVP</Table.ColumnHeader>
+                  <Table.ColumnHeader>Food</Table.ColumnHeader>
+                  <Table.ColumnHeader>Activity</Table.ColumnHeader>
+                  <Table.ColumnHeader>Bringing</Table.ColumnHeader>
+                </Table.Row>
+              </Table.Header>
+              <Table.Body>
+                {invitees.map((invitee) => (
+                  <Table.Row key={invitee.id}>
+                    <Table.Cell>{invitee.userName}</Table.Cell>
+                    <Table.Cell>{invitee.rsvpStatus}</Table.Cell>
+                    <Table.Cell>
+                      {foodOptions.find((o) => o.id === invitee.foodChoice1)?.name ?? '—'}
+                    </Table.Cell>
+                    <Table.Cell>
+                      {activityOptions.find((o) => o.id === invitee.activityChoice1)?.name ?? '—'}
+                    </Table.Cell>
+                    <Table.Cell>
+                      {bringItems.find((i) => i.id === invitee.bringItemId)?.name ?? '—'}
+                    </Table.Cell>
+                  </Table.Row>
+                ))}
+              </Table.Body>
+            </Table.Root>
+          </Table.ScrollArea>
+        </Box>
       ) : null}
 
       {votingResults ? (
-        <section>
-          <h3>Voting results</h3>
-          <h4>Food</h4>
-          <table>
-            <thead>
-              <tr>
-                <th>Option</th>
-                <th>1st</th>
-                <th>2nd</th>
-                <th>3rd</th>
-              </tr>
-            </thead>
-            <tbody>
-              {votingResults.food.map((row) => (
-                <tr key={row.id}>
-                  <td>{row.name}</td>
-                  <td>{row.first}</td>
-                  <td>{row.second}</td>
-                  <td>{row.third}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <h4>Activity</h4>
-          <table>
-            <thead>
-              <tr>
-                <th>Option</th>
-                <th>1st</th>
-                <th>2nd</th>
-                <th>3rd</th>
-              </tr>
-            </thead>
-            <tbody>
-              {votingResults.activity.map((row) => (
-                <tr key={row.id}>
-                  <td>{row.name}</td>
-                  <td>{row.first}</td>
-                  <td>{row.second}</td>
-                  <td>{row.third}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
+        <Box as="section" borderWidth="1px" borderRadius="lg" p={{ base: 4, md: 6 }}>
+          <Heading as="h3" size="md" mb={3}>
+            Voting results
+          </Heading>
+          <Heading as="h4" size="sm" mb={2}>
+            Food
+          </Heading>
+          <Table.ScrollArea mb={5}>
+            <Table.Root size="sm">
+              <Table.Header>
+                <Table.Row>
+                  <Table.ColumnHeader>Option</Table.ColumnHeader>
+                  <Table.ColumnHeader>1st</Table.ColumnHeader>
+                  <Table.ColumnHeader>2nd</Table.ColumnHeader>
+                  <Table.ColumnHeader>3rd</Table.ColumnHeader>
+                </Table.Row>
+              </Table.Header>
+              <Table.Body>
+                {votingResults.food.map((row) => (
+                  <Table.Row key={row.id}>
+                    <Table.Cell>{row.name}</Table.Cell>
+                    <Table.Cell>{row.first}</Table.Cell>
+                    <Table.Cell>{row.second}</Table.Cell>
+                    <Table.Cell>{row.third}</Table.Cell>
+                  </Table.Row>
+                ))}
+              </Table.Body>
+            </Table.Root>
+          </Table.ScrollArea>
+          <Heading as="h4" size="sm" mb={2}>
+            Activity
+          </Heading>
+          <Table.ScrollArea>
+            <Table.Root size="sm">
+              <Table.Header>
+                <Table.Row>
+                  <Table.ColumnHeader>Option</Table.ColumnHeader>
+                  <Table.ColumnHeader>1st</Table.ColumnHeader>
+                  <Table.ColumnHeader>2nd</Table.ColumnHeader>
+                  <Table.ColumnHeader>3rd</Table.ColumnHeader>
+                </Table.Row>
+              </Table.Header>
+              <Table.Body>
+                {votingResults.activity.map((row) => (
+                  <Table.Row key={row.id}>
+                    <Table.Cell>{row.name}</Table.Cell>
+                    <Table.Cell>{row.first}</Table.Cell>
+                    <Table.Cell>{row.second}</Table.Cell>
+                    <Table.Cell>{row.third}</Table.Cell>
+                  </Table.Row>
+                ))}
+              </Table.Body>
+            </Table.Root>
+          </Table.ScrollArea>
+        </Box>
       ) : null}
 
       {event.status === 'published' ? (
-        <section>
-          <h3>Finalize</h3>
+        <Box as="section" borderWidth="1px" borderRadius="lg" p={{ base: 4, md: 6 }}>
+          <Heading as="h3" size="md" mb={3}>
+            Finalize
+          </Heading>
           <form action={finalizeEventAction}>
             <input type="hidden" name="eventId" value={event.id} />
-            <div>
-              <label htmlFor="finalFoodOptionId">Final food</label>
-              <select id="finalFoodOptionId" name="finalFoodOptionId" required>
-                {/* Disabled options are off the table — an admin must not be
-                    able to finalize on one. */}
-                {foodOptions.filter((option) => !option.disabled).map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="finalActivityOptionId">Final activity</label>
-              <select id="finalActivityOptionId" name="finalActivityOptionId" required>
-                {activityOptions.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <button type="submit">Finalize Event</button>
+            <Stack gap={4}>
+              <FormSelect
+                id="finalFoodOptionId"
+                name="finalFoodOptionId"
+                placeholder="Choose the final food"
+                required
+                options={foodOptions
+                  .filter((option) => !option.disabled)
+                  .map((option) => ({ value: option.id, label: option.name }))}
+              />
+              <FormSelect
+                id="finalActivityOptionId"
+                name="finalActivityOptionId"
+                placeholder="Choose the final activity"
+                required
+                options={activityOptions.map((option) => ({
+                  value: option.id,
+                  label: option.name,
+                }))}
+              />
+              <Button type="submit" alignSelf="flex-start">
+                Finalize Event
+              </Button>
+            </Stack>
           </form>
-        </section>
+        </Box>
       ) : null}
 
       {event.status === 'finalized' ? (
-        <section>
-          <h3>Finalized</h3>
-          <p>
-            Final food:{' '}
-            {foodOptions.find((o) => o.id === event.finalFoodOptionId)?.name}
-          </p>
-          <p>
+        <Box as="section" borderWidth="1px" borderRadius="lg" p={{ base: 4, md: 6 }}>
+          <Heading as="h3" size="md" mb={3}>
+            Finalized
+          </Heading>
+          <Text>Final food: {foodOptions.find((o) => o.id === event.finalFoodOptionId)?.name}</Text>
+          <Text>
             Final activity:{' '}
             {activityOptions.find((o) => o.id === event.finalActivityOptionId)?.name}
-          </p>
-        </section>
+          </Text>
+        </Box>
       ) : null}
-    </main>
+    </PageShell>
   )
 }
