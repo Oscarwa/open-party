@@ -832,13 +832,20 @@ Expected: no output, exit code 0.
 
 ```bash
 cp .env.example .env
+# The app validates its environment at boot (instrumentation hook), so the
+# copied placeholder values must be completed first:
+#   - fill SESSION_SECRET (`openssl rand -base64 32`)
+#   - remove the DATABASE_URL/WAHA_URL lines so compose falls back to the
+#     in-network dev services (postgres:5432 / waha:3000); the .env.example
+#     values are the host-facing ones, which the container cannot reach.
 docker compose --profile dev up -d postgres app
 sleep 3
 curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:3000/
 docker compose down
 ```
 
-Expected: prints `200`.
+Expected: prints `200`. (A `500` here means the environment failed validation
+at boot — check `docker compose logs app`.)
 
 - [ ] **Step 8: Commit**
 
@@ -972,7 +979,7 @@ export default function AdminEventsPage() {
 
 `docs/deploy/tailscale.md`:
 
-```markdown
+````markdown
 # Tailscale Serve / Funnel configuration
 
 Run these on the homelab host after `docker compose up -d` has the `app`
@@ -981,6 +988,29 @@ serve/funnel CLI as of writing — confirm against `tailscale serve --help`
 and `tailscale funnel --help` on your installed version before relying on
 them, since this CLI has changed across Tailscale releases.
 
+## Security model for /admin
+
+**The Funnel path configuration is the primary boundary.** `/admin` stays
+private because Funnel is only ever configured to expose the public path
+prefixes — never a path that reaches `/admin`. Everything public rides on
+Funnel; everything private is reachable only over the Tailnet via
+`tailscale serve`. Getting step 2 below right is what actually keeps
+`/admin` off the public internet, so verify it with `tailscale funnel
+status` every time you change it.
+
+**The app's middleware is defense in depth.** `src/middleware.ts` 404s any
+`/admin/*` request that does not carry a `Tailscale-User-Login` header.
+The intent is to survive a Funnel misconfiguration that accidentally
+exposes `/admin`.
+
+Its effectiveness rests on an assumption we have **not verified**: that
+Tailscale strips/overrides a client-supplied `Tailscale-User-Login` header
+on Funnel-origin requests. If it does not, a public attacker can simply
+set that header themselves and the middleware waves them through. Treat
+this as unproven until you run the check in step 4 on your own deployment.
+Do not weaken the Funnel path config on the assumption that the middleware
+will catch it.
+
 1. Serve the full app to your Tailnet only. This is what makes `/admin`
    reachable to you:
 
@@ -988,25 +1018,88 @@ them, since this CLI has changed across Tailscale releases.
    tailscale serve --bg 3000
    ```
 
-2. Expose ONLY the public routes to the internet via Funnel. Funnel needs
-   an explicit allowlist of paths — do not funnel the whole port, or
-   `/admin` becomes public:
+2. Expose ONLY the public routes to the internet via Funnel. Some
+   Tailscale versions treat `--set-path=/` as "funnel the whole port"
+   (which would expose `/admin` at the config level — exactly the
+   situation the primary boundary is supposed to prevent) rather than an
+   exact match on the literal `/` path. Run `tailscale funnel status`
+   afterwards and confirm it lists only the paths you intended:
 
    ```
    tailscale funnel --bg --set-path=/ 3000
    ```
 
-   As the app grows, add one `--set-path` per public route prefix (e.g.
-   `/e` for the RSVP pages added in a later phase). Never add `/admin`.
+   As the app grows past this single public route, prefer mounting
+   specific public route prefixes (e.g. `--set-path=/e` for the RSVP
+   pages added in a later phase) instead of relying on the root mount,
+   and never add a path prefix under `/admin`.
 
-3. Verify:
+3. Verify normal behaviour:
    - From a device on your Tailnet: `https://<magicdns-name>.ts.net/admin`
      should load the admin stub page.
    - From a device off your Tailnet (e.g. phone on cellular data):
-     `https://<magicdns-name>.ts.net/admin` should return "Not found",
-     and `https://<magicdns-name>.ts.net/` should load the public stub
-     page.
+     `https://<magicdns-name>.ts.net/` should load the public stub page,
+     and `https://<magicdns-name>.ts.net/admin` should return "Not found".
+
+4. Verify the defense-in-depth layer actually holds (do this once, from an
+   off-Tailnet device, after your first deploy and after any Tailscale
+   upgrade). Try to forge the identity header against the public Funnel
+   URL:
+
+   ```
+   curl -i -H 'Tailscale-User-Login: attacker@example.com' \
+     https://<magicdns-name>.ts.net/admin
+   ```
+
+   Expected: `404` with "Not found" — Tailscale discarded your header and
+   the middleware rejected the request.
+
+   If you get the admin page instead, the header is **not** being
+   stripped: the middleware is bypassable from the public internet and
+   provides no protection at all. In that case the Funnel path config is
+   your only boundary, so audit it (`tailscale funnel status`) and make
+   certain nothing under `/admin` is exposed. File this as a bug against
+   the app — the middleware would then need a stronger signal than a
+   plain header to gate on.
+
+## Applying database migrations
+
+The deployed container does not run migrations on startup, by design —
+this is a homelab-scale deployment and a documented manual step is the
+right amount of machinery. The image ships the SQL under
+`/app/src/db/migrations` for reference, but you apply migrations from a
+machine that has Node and this repo checked out and can reach the
+production Postgres:
+
+```bash
+# from a checkout of this repo, with dependencies installed (npm ci)
+DATABASE_URL='postgres://<user>:<pass>@<prod-host>:<port>/<db>' \
+  npm run db:migrate
 ```
+
+`npm run db:migrate` (`scripts/migrate.ts`) is idempotent: it applies only
+migrations not yet recorded in the target database, so re-running it is
+safe.
+
+Run it:
+
+- after the very first deploy, before the app serves traffic (the schema
+  does not exist yet), and
+- after any deploy that includes a schema change (a new file under
+  `src/db/migrations/`).
+
+`scripts/migrate.ts` validates the full app environment via `loadEnv()`,
+and it reads only the real process environment — it does not load `.env`
+files itself. So the shell you run it in needs `WAHA_URL`, `WAHA_SESSION`
+and `SESSION_SECRET` set as well as `DATABASE_URL`. The easiest way is to
+source a populated env file and override the database URL:
+
+```bash
+set -a && . ./.env.local && set +a
+DATABASE_URL='postgres://<user>:<pass>@<prod-host>:<port>/<db>' \
+  npm run db:migrate
+```
+````
 
 - [ ] **Step 7: Commit**
 
