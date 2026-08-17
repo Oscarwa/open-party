@@ -1,7 +1,12 @@
 import { defineConfig, configDefaults } from 'vitest/config'
 import path from 'node:path'
+import react from '@vitejs/plugin-react'
 
 export default defineConfig({
+  // Needed for the one .tsx test file in this suite (FormSelect's
+  // component tests). A no-op for every existing .ts test file — this
+  // plugin only transforms .jsx/.tsx.
+  plugins: [react()],
   test: {
     environment: 'node',
     // Migrations run exactly once here, before any test file starts —
