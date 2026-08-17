@@ -4,6 +4,14 @@ import path from 'node:path'
 export default defineConfig({
   test: {
     environment: 'node',
+    // Migrations run exactly once here, before any test file starts —
+    // see tests/global-setup.ts. Individual test files must not call
+    // migrate() themselves; two files doing so concurrently races on
+    // Postgres's catalog (CREATE SCHEMA IF NOT EXISTS "drizzle").
+    globalSetup: ['./tests/global-setup.ts'],
+    // Test files share one physical test database and truncate tables
+    // in their own beforeAll — safe only if files run one at a time.
+    fileParallelism: false,
     // Exclude nested git worktrees living inside this checkout (this repo
     // is used with a harness that places worktrees under .claude/worktrees/
     // or .worktrees/). Without this, running the suite from a checkout that

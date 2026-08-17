@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 import { drizzle } from 'drizzle-orm/postgres-js'
-import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import { eq } from 'drizzle-orm'
 import postgres from 'postgres'
 import * as schema from '../../src/db/schema'
@@ -15,7 +14,6 @@ const testDb = drizzle(queryClient, { schema })
 
 describe('db client', () => {
   beforeAll(async () => {
-    await migrate(testDb, { migrationsFolder: './src/db/migrations' })
     // The round-trip test below inserts a fixed whatsapp_number, which is
     // unique — without this the suite only passes against a brand-new
     // database and fails on any second run.
