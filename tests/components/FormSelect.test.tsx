@@ -105,6 +105,27 @@ describe('FormSelect', () => {
     expect(hiddenSelect.value).toBe('b')
   })
 
+  it('clears the hidden select value back to empty via the clear trigger', async () => {
+    const user = userEvent.setup()
+    const { container } = renderWithChakra(
+      <FormSelect
+        name="bringItemId"
+        placeholder="Nothing"
+        defaultValue="a"
+        options={[
+          { value: 'a', label: 'Drinks' },
+          { value: 'b', label: 'Chips' },
+        ]}
+      />,
+    )
+    const hiddenSelect = container.querySelector(
+      'select[name="bringItemId"]',
+    ) as HTMLSelectElement
+    expect(hiddenSelect.value).toBe('a')
+    await user.click(screen.getByRole('button', { name: /clear/i }))
+    expect(hiddenSelect.value).toBe('')
+  })
+
   it('does not allow selecting a disabled option', async () => {
     const user = userEvent.setup()
     const { container } = renderWithChakra(

@@ -25,6 +25,7 @@ import {
 } from '@/lib/actions/events'
 import { PageShell } from '@/components/PageShell'
 import { FormSelect } from '@/components/FormSelect'
+import { FieldGroup } from '@/components/FieldGroup'
 import { Button } from '@/components/Button'
 
 export default async function EventDetailPage({
@@ -380,25 +381,29 @@ export default async function EventDetailPage({
           <form action={finalizeEventAction}>
             <input type="hidden" name="eventId" value={event.id} />
             <Stack gap={4}>
-              <FormSelect
-                id="finalFoodOptionId"
-                name="finalFoodOptionId"
-                placeholder="Choose the final food"
-                required
-                options={foodOptions
-                  .filter((option) => !option.disabled)
-                  .map((option) => ({ value: option.id, label: option.name }))}
-              />
-              <FormSelect
-                id="finalActivityOptionId"
-                name="finalActivityOptionId"
-                placeholder="Choose the final activity"
-                required
-                options={activityOptions.map((option) => ({
-                  value: option.id,
-                  label: option.name,
-                }))}
-              />
+              <FieldGroup label="Final food" htmlFor="finalFoodOptionId">
+                <FormSelect
+                  id="finalFoodOptionId"
+                  name="finalFoodOptionId"
+                  placeholder="Choose the final food"
+                  required
+                  options={foodOptions
+                    .filter((option) => !option.disabled)
+                    .map((option) => ({ value: option.id, label: option.name }))}
+                />
+              </FieldGroup>
+              <FieldGroup label="Final activity" htmlFor="finalActivityOptionId">
+                <FormSelect
+                  id="finalActivityOptionId"
+                  name="finalActivityOptionId"
+                  placeholder="Choose the final activity"
+                  required
+                  options={activityOptions.map((option) => ({
+                    value: option.id,
+                    label: option.name,
+                  }))}
+                />
+              </FieldGroup>
               <Button type="submit" alignSelf="flex-start">
                 Finalize Event
               </Button>
