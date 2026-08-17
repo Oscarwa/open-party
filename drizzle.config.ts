@@ -1,5 +1,4 @@
 import { defineConfig } from 'drizzle-kit'
-import { loadEnv } from './src/lib/env'
 import * as fs from 'fs'
 import * as path from 'path'
 
@@ -20,13 +19,22 @@ if (fs.existsSync(envLocalPath)) {
   }
 }
 
-const env = loadEnv()
+// Deliberately does NOT use loadEnv() from src/lib/env.ts: that validates the
+// whole app environment (SESSION_SECRET, WAHA_URL, ...), none of which a
+// migration generator needs. Requiring them here would make `npm run db:generate`
+// throw on a fresh clone whose .env.local is still the unfilled .env.example.
+const databaseUrl = process.env.DATABASE_URL?.trim()
+if (!databaseUrl) {
+  throw new Error(
+    'DATABASE_URL is required to run drizzle-kit. Set it in .env.local or the environment.'
+  )
+}
 
 export default defineConfig({
   schema: './src/db/schema.ts',
   out: './src/db/migrations',
   dialect: 'postgresql',
   dbCredentials: {
-    url: env.DATABASE_URL,
+    url: databaseUrl,
   },
 })
