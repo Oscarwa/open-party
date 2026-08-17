@@ -599,7 +599,7 @@ import * as schema from '../../src/db/schema'
 
 const TEST_DATABASE_URL =
   process.env.TEST_DATABASE_URL ??
-  'postgres://open_party:open_party@localhost:5433/open_party_test'
+  'postgres://open_party:open_party@localhost:55432/open_party_test'
 
 const queryClient = postgres(TEST_DATABASE_URL)
 const testDb = drizzle(queryClient, { schema })
@@ -631,7 +631,9 @@ This test needs a running Postgres — it's added by Task 5's docker-compose fil
 - [ ] **Step 3: Run the test to verify it fails for the right reason**
 
 Run: `npx vitest run tests/db/client.test.ts`
-Expected: FAIL — connection refused to `localhost:5433` (no Postgres running yet). This confirms the test exercises a real connection rather than passing vacuously.
+Expected: FAIL — connection refused to `localhost:55432` (no Postgres running yet). This confirms the test exercises a real connection rather than passing vacuously.
+
+Note: port 55432 (rather than the more conventional 5433) is deliberate — 5433 is a common "just bump 5432 by one" convention other locally-running Postgres containers may already occupy, causing a silent collision (see the incident logged in this plan's SDD ledger during implementation).
 
 - [ ] **Step 4: Implement `src/db/client.ts`**
 
@@ -807,7 +809,7 @@ services:
       POSTGRES_PASSWORD: open_party
       POSTGRES_DB: open_party_test
     ports:
-      - "127.0.0.1:5433:5432"
+      - "127.0.0.1:55432:5432"
     tmpfs:
       - /var/lib/postgresql/data
 
