@@ -140,8 +140,21 @@ export async function addInvitee(
       })
       .returning()
     return invitee
-  } catch {
-    throw new EventActionError('This person is already invited to this event')
+  } catch (error) {
+    // Only convert the unique constraint violation on (eventId, userId) to
+    // the domain error. Rethrow any other database error to avoid masking
+    // real issues (dropped connections, FK violations, etc.).
+    const cause = (error as any)?.cause
+    if (
+      cause instanceof Error &&
+      'code' in cause &&
+      cause.code === '23505' &&
+      'constraint_name' in cause &&
+      cause.constraint_name === 'event_invitees_event_id_user_id_unique'
+    ) {
+      throw new EventActionError('This person is already invited to this event')
+    }
+    throw error
   }
 }
 
