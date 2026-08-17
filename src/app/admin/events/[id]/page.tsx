@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation'
+import { z } from 'zod'
 import { getEvent, getFoodOptions, getActivityOptions, getBringItems, getInvitees, getRsvpCounts, getVotingResults } from '@/lib/queries/events'
 import {
   addFoodOptionAction,
@@ -20,6 +21,20 @@ export default async function EventDetailPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
+
+  // `events.id` is a uuid column: handing Postgres a non-uuid string makes
+  // the query itself throw ("invalid input syntax for type uuid") before
+  // getEvent() can return null, which would surface as a 500 instead of a
+  // 404. Shape-check first so a malformed URL is just "not found".
+  //
+  // z.guid(), not z.uuid(): zod 4's uuid() also enforces the RFC version
+  // and variant bits, which would 404 a row whose id is accepted by
+  // Postgres but not RFC-conformant. All this guard needs is the 8-4-4-4-12
+  // hex shape that makes the cast safe.
+  if (!z.guid().safeParse(id).success) {
+    notFound()
+  }
+
   const event = await getEvent(id)
 
   if (!event) {
@@ -299,7 +314,9 @@ export default async function EventDetailPage({
             <div>
               <label htmlFor="finalFoodOptionId">Final food</label>
               <select id="finalFoodOptionId" name="finalFoodOptionId" required>
-                {foodOptions.map((option) => (
+                {/* Disabled options are off the table — an admin must not be
+                    able to finalize on one. */}
+                {foodOptions.filter((option) => !option.disabled).map((option) => (
                   <option key={option.id} value={option.id}>
                     {option.name}
                   </option>
