@@ -2,6 +2,7 @@ import { Input, Stack, Textarea } from '@chakra-ui/react'
 import { createEventAction } from '@/lib/actions/events'
 import { PageShell } from '@/components/PageShell'
 import { FieldGroup } from '@/components/FieldGroup'
+import { DateField } from '@/components/DateField'
 import { Button } from '@/components/Button'
 
 export default function NewEventPage() {
@@ -13,7 +14,7 @@ export default function NewEventPage() {
             <Input id="title" name="title" required />
           </FieldGroup>
           <FieldGroup label="Date" htmlFor="date">
-            <Input id="date" name="date" type="date" required />
+            <DateField id="date" name="date" required />
           </FieldGroup>
           <FieldGroup label="Start time" htmlFor="startTime">
             <Input id="startTime" name="startTime" type="time" required />
