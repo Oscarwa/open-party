@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation'
+import NextLink from 'next/link'
 import { z } from 'zod'
 import { Box, Heading, HStack, Input, Stack, Table, Text } from '@chakra-ui/react'
 import {
@@ -68,6 +69,9 @@ export default async function EventDetailPage({
 
   return (
     <PageShell title={event.title}>
+      <Button asChild variant="outline" size="sm" alignSelf="flex-start">
+        <NextLink href="/admin">&larr; Back to Events</NextLink>
+      </Button>
       <Text color="fg.muted">
         {event.date} {event.startTime} · {event.status}
       </Text>
